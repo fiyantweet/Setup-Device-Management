@@ -1,11 +1,9 @@
 // ==========================================
 // KONEKSI SUPABASE CLOUD
 // ==========================================
-// PENTING: Ganti nilai di bawah dengan URL & Anon Key dari Project Settings > API di Supabase Anda
-const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
+const SUPABASE_URL = https://xnfdvmxbklqelwvxzygp.supabase.co;
+const SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q;
 
-// Inisialisasi Supabase Client
 let supabaseClient = null;
 try {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -14,6 +12,27 @@ try {
 }
 
 let currentUser = null;
+
+// ==========================================
+// HELPER: FORMAT TANGGAL UNTUK INPUT TYPE="DATE"
+// ==========================================
+function formatDateForInput(dateStr) {
+    if (!dateStr) return '';
+    // Jika mengandung format ISO (misal: 2026-06-07T00:00:00.000Z), ambil bagian tanggalnya saja
+    if (dateStr.includes('T')) {
+        return dateStr.split('T')[0];
+    }
+    // Jika sudah format YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return dateStr;
+    }
+    // Coba parsing standar JavaScript Date
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
+    }
+    return '';
+}
 
 // ==========================================
 // 1. SISTEM AUTENTIKASI (Login, 2FA, Reset)
@@ -25,7 +44,6 @@ function toggleAuth(view) {
     document.getElementById(`${view}-card`).classList.remove('hidden');
 }
 
-// Fitur Hidden Demo Account (Otomatis isi form login)
 function fillDemoAccount() {
     document.getElementById('login-user').value = 'admin';
     document.getElementById('login-pass').value = 'admin123';
@@ -59,7 +77,7 @@ async function handleLogin() {
         }
 
         if (!users || users.length === 0) {
-            alert("Gagal Login: Username atau Password salah, atau akun belum terdaftar di database Supabase!");
+            alert("Gagal Login: Username atau Password salah, atau akun belum terdaftar!");
             return;
         }
 
@@ -97,14 +115,11 @@ async function handle2FA() {
     
     if (code.length === 6 && !isNaN(code)) {
         if (!currentUser.is_2fa_setup) {
-            const { error } = await supabaseClient
+            await supabaseClient
                 .from('app_users')
                 .update({ is_2fa_setup: true })
                 .eq('id', currentUser.id);
-            
-            if(!error) {
-                currentUser.is_2fa_setup = true;
-            }
+            currentUser.is_2fa_setup = true;
         }
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
@@ -127,9 +142,9 @@ async function handleReset() {
         .select();
 
     if (error || !data || data.length === 0) {
-        alert("Gagal Reset: Username tersebut tidak ditemukan di database Supabase.");
+        alert("Gagal Reset: Username tersebut tidak ditemukan.");
     } else {
-        alert("Reset Password Berhasil! Silakan login kembali dengan password baru.");
+        alert("Reset Password Berhasil! Silakan login kembali.");
         toggleAuth('login');
     }
 }
@@ -245,12 +260,14 @@ async function searchDevice() {
 
 async function saveDevice() {
     const id = document.getElementById('dev-id').value;
+    const tanggalInput = document.getElementById('dev-tgl').value;
+
     const data = {
         nama: document.getElementById('dev-nama').value,
         sn: document.getElementById('dev-sn').value,
         email: document.getElementById('dev-email').value,
         alamat: document.getElementById('dev-alamat').value,
-        tanggal: document.getElementById('dev-tgl').value,
+        tanggal: tanggalInput, // Disimpan dalam format YYYY-MM-DD
         status: document.getElementById('dev-status').value
     };
 
@@ -269,12 +286,15 @@ async function editDevice(id) {
     if(data) {
         document.getElementById('title-device').innerText = 'Edit Status & Data Deploy';
         document.getElementById('dev-id').value = data.id;
-        document.getElementById('dev-nama').value = data.nama;
-        document.getElementById('dev-sn').value = data.sn;
-        document.getElementById('dev-email').value = data.email;
-        document.getElementById('dev-alamat').value = data.alamat;
-        document.getElementById('dev-tgl').value = data.tanggal;
-        document.getElementById('dev-status').value = data.status;
+        document.getElementById('dev-nama').value = data.nama || '';
+        document.getElementById('dev-sn').value = data.sn || '';
+        document.getElementById('dev-email').value = data.email || '';
+        document.getElementById('dev-alamat').value = data.alamat || '';
+        
+        // PERBAIKAN: Memformat tanggal agar kompatibel dengan input type="date"
+        document.getElementById('dev-tgl').value = formatDateForInput(data.tanggal);
+        
+        document.getElementById('dev-status').value = data.status || 'Belum di setup';
         document.getElementById('modal-device').classList.remove('hidden');
     }
 }
@@ -396,19 +416,25 @@ async function importExcel(event) {
     const reader = new FileReader();
     reader.onload = async function(e) {
         const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type: 'array'});
+        // Menggunakan cellDates: true agar SheetJS mendeteksi format tanggal dengan benar
+        const workbook = XLSX.read(data, {type: 'array', cellDates: true});
         const sheetName = workbook.SheetNames[0];
         const importedData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
         
         if (importedData.length > 0) {
-            const mappedData = importedData.map(item => ({
-                nama: item.nama || '',
-                sn: item.sn || '',
-                email: item.email || '',
-                alamat: item.alamat || '',
-                tanggal: item.tanggal || '',
-                status: item.status || 'Belum di setup'
-            }));
+            const mappedData = importedData.map(item => {
+                let rawDate = item.tanggal || item.Tanggal || '';
+                let formattedDate = formatDateForInput(rawDate);
+
+                return {
+                    nama: item.nama || item.Nama || '',
+                    sn: item.sn || item.SN || item['Serial Number'] || '',
+                    email: item.email || item.Email || '',
+                    alamat: item.alamat || item.Alamat || '',
+                    tanggal: formattedDate,
+                    status: item.status || item.Status || 'Belum di setup'
+                };
+            });
             
             await supabaseClient.from('devices').insert(mappedData);
             renderDevices();
