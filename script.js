@@ -1,19 +1,23 @@
 // ==========================================
 // KONEKSI SUPABASE CLOUD
 // ==========================================
+// PENTING: Ganti nilai di bawah dengan URL & Anon Key dari Project Settings > API di Supabase Anda
 const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
+
 let supabaseClient = null;
 try {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    if (window.supabase && SUPABASE_URL !== 'ISI_DENGAN_PROJECT_URL_SUPABASE_ANDA') {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
 } catch (e) {
-    console.error("Gagal inisialisasi Supabase:", e);
+    console.error("Gagal menginisialisasi Supabase:", e);
 }
 
 let currentUser = null;
 
 // ==========================================
-// 1. SISTEM AUTENTIKASI & LOGIN
+// 1. SISTEM AUTENTIKASI & TOMBOL LOGIN
 // ==========================================
 function toggleAuth(view) {
     document.getElementById('login-card').classList.add('hidden');
@@ -22,26 +26,15 @@ function toggleAuth(view) {
     document.getElementById(`${view}-card`).classList.remove('hidden');
 }
 
-// Fitur Hidden Demo Account
 function fillDemoAccount() {
-    const userInput = document.getElementById('login-user');
-    const passInput = document.getElementById('login-pass');
-    if (userInput && passInput) {
-        userInput.value = 'admin';
-        passInput.value = 'admin123';
-        passInput.focus();
-    }
+    document.getElementById('login-user').value = 'admin';
+    document.getElementById('login-pass').value = 'admin123';
+    document.getElementById('login-pass').focus();
 }
 
-// Fungsi Utama Login yang Diperbaiki
 async function handleLogin() {
-    const userInput = document.getElementById('login-user');
-    const passInput = document.getElementById('login-pass');
-    
-    if (!userInput || !passInput) return;
-    
-    const user = userInput.value.trim();
-    const pass = passInput.value.trim();
+    const user = document.getElementById('login-user').value.trim();
+    const pass = document.getElementById('login-pass').value.trim();
     
     if (!user || !pass) {
         alert("Username dan Password tidak boleh kosong!");
@@ -49,7 +42,7 @@ async function handleLogin() {
     }
 
     if (!supabaseClient || SUPABASE_URL.includes('ISI_DENGAN')) {
-        alert("Konfigurasi URL dan Anon Key Supabase di file script.js belum diisi dengan benar!");
+        alert("Konfigurasi Supabase URL dan Anon Key belum diisi dengan benar di file script.js!");
         return;
     }
 
@@ -66,17 +59,14 @@ async function handleLogin() {
         }
 
         if (!users || users.length === 0) {
-            alert("Gagal Login: Username atau Password salah, atau akun belum terdaftar di database Supabase!");
+            alert("Gagal Login: Username atau Password salah, atau pastikan tabel app_users sudah dibuat di Supabase!");
             return;
         }
 
         currentUser = users[0];
         toggleAuth('mfa');
         prepareAuthenticator(currentUser);
-        setTimeout(() => {
-            const mfaInput = document.getElementById('mfa-code');
-            if(mfaInput) mfaInput.focus();
-        }, 100);
+        setTimeout(() => document.getElementById('mfa-code').focus(), 100);
 
     } catch (err) {
         console.error("Login Exception:", err);
@@ -88,8 +78,6 @@ function prepareAuthenticator(account) {
     const qrContainer = document.getElementById('qr-container');
     const qrDiv = document.getElementById('qrcode');
     const instruction = document.getElementById('mfa-instruction');
-    if(!qrDiv) return;
-    
     qrDiv.innerHTML = ''; 
 
     if (!account.is_2fa_setup) {
@@ -105,12 +93,10 @@ function prepareAuthenticator(account) {
 }
 
 async function handle2FA() {
-    const codeInput = document.getElementById('mfa-code');
-    if(!codeInput) return;
-    const code = codeInput.value.trim();
+    const code = document.getElementById('mfa-code').value.trim();
     
     if (code.length === 6 && !isNaN(code)) {
-        if (!currentUser.is_2fa_setup) {
+        if (!currentUser.is_2fa_setup && supabaseClient) {
             await supabaseClient
                 .from('app_users')
                 .update({ is_2fa_setup: true })
@@ -154,7 +140,7 @@ function logout() {
 }
 
 // ==========================================
-// 2. SHORTCUT TOMBOL ENTER (KEYBOARD)
+// 2. SHORTCUT TOMBOL ENTER & EVENT LISTENERS
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     const loginUser = document.getElementById('login-user');
@@ -177,15 +163,13 @@ document.addEventListener("DOMContentLoaded", () => {
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
-    const badge = document.getElementById('login-role-badge');
-    if(badge) badge.innerText = `[ ${currentUser.role} ]`;
+    document.getElementById('login-role-badge').innerText = `[ ${currentUser.role} ]`;
 
-    const adminTab = document.getElementById('tab-btn-admin');
     if(currentUser.role === 'Admin') {
-        if(adminTab) adminTab.style.display = 'inline-block';
+        document.getElementById('tab-btn-admin').style.display = 'inline-block';
         renderUsers();
     } else {
-        if(adminTab) adminTab.style.display = 'none';
+        document.getElementById('tab-btn-admin').style.display = 'none';
         switchTab('device');
     }
 
@@ -195,17 +179,12 @@ async function initApp() {
 function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    
-    const targetTab = document.getElementById(`tab-${tabName}`);
-    if(targetTab) targetTab.classList.add('active');
-    
-    // Aktifkan tombol tab visual
-    if(event && event.currentTarget) {
-        event.currentTarget.classList.add('active');
-    }
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+    event.currentTarget.classList.add('active');
 }
 
 async function updateDashboardStats() {
+    if (!supabaseClient) return;
     const { data: devices } = await supabaseClient.from('devices').select('*');
     if(!devices) return;
     
@@ -217,7 +196,7 @@ async function updateDashboardStats() {
 }
 
 // ==========================================
-// 4. CRUD DEVICES (PERBAIKAN TANGGAL DEPLOY)
+// 4. CRUD DEVICES (SUPABASE)
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -228,11 +207,11 @@ function getStatusBadge(status) {
 }
 
 async function renderDevices(filterText = '') {
-    const { data: devices, error } = await supabaseClient.from('devices').select('*').order('id', { ascending: false });
+    if (!supabaseClient) return;
+    const { data: devices, error } = await supabaseClient.from('devices').select('*');
     if (error) { console.error(error); return; }
 
     const tbody = document.getElementById('table-device');
-    if(!tbody) return;
     tbody.innerHTML = '';
 
     const filtered = (devices || []).filter(d => 
@@ -260,62 +239,48 @@ async function renderDevices(filterText = '') {
 }
 
 async function searchDevice() {
-    const searchInput = document.getElementById('search-input');
-    if(searchInput) renderDevices(searchInput.value);
+    renderDevices(document.getElementById('search-input').value);
 }
 
-// Fungsi Simpan/Update Device (Memastikan format tanggal YYYY-MM-DD tersimpan dengan benar)
 async function saveDevice() {
     const id = document.getElementById('dev-id').value;
-    const tanggalVal = document.getElementById('dev-tgl').value; // Mengambil nilai dari input type="date"
-
     const data = {
-        nama: document.getElementById('dev-nama').value.trim(),
-        sn: document.getElementById('dev-sn').value.trim(),
-        email: document.getElementById('dev-email').value.trim(),
-        alamat: document.getElementById('dev-alamat').value.trim(),
-        tanggal: tanggalVal || new Date().toISOString().split('T')[0], // Jika kosong, set tanggal hari ini
+        nama: document.getElementById('dev-nama').value,
+        sn: document.getElementById('dev-sn').value,
+        email: document.getElementById('dev-email').value,
+        alamat: document.getElementById('dev-alamat').value,
+        tanggal: document.getElementById('dev-tgl').value,
         status: document.getElementById('dev-status').value
     };
 
     if (id) {
-        const { error } = await supabaseClient.from('devices').update(data).eq('id', id);
-        if(error) alert("Gagal update device: " + error.message);
+        await supabaseClient.from('devices').update(data).eq('id', id);
     } else {
-        const { error } = await supabaseClient.from('devices').insert([data]);
-        if(error) alert("Gagal menambah device: " + error.message);
+        await supabaseClient.from('devices').insert([data]);
     }
     
     closeModal('modal-device');
     renderDevices();
 }
 
-// Fungsi Edit Device (Memuat kembali tanggal ke input date form)
 async function editDevice(id) {
-    const { data, error } = await supabaseClient.from('devices').select('*').eq('id', id).single();
-    if(error || !data) {
-        alert("Gagal mengambil data device.");
-        return;
+    const { data } = await supabaseClient.from('devices').select('*').eq('id', id).single();
+    if(data) {
+        document.getElementById('title-device').innerText = 'Edit Status & Data Deploy';
+        document.getElementById('dev-id').value = data.id;
+        document.getElementById('dev-nama').value = data.nama;
+        document.getElementById('dev-sn').value = data.sn;
+        document.getElementById('dev-email').value = data.email;
+        document.getElementById('dev-alamat').value = data.alamat;
+        document.getElementById('dev-tgl').value = data.tanggal;
+        document.getElementById('dev-status').value = data.status;
+        document.getElementById('modal-device').classList.remove('hidden');
     }
-
-    document.getElementById('title-device').innerText = 'Edit Status & Data Deploy';
-    document.getElementById('dev-id').value = data.id;
-    document.getElementById('dev-nama').value = data.nama || '';
-    document.getElementById('dev-sn').value = data.sn || '';
-    document.getElementById('dev-email').value = data.email || '';
-    document.getElementById('dev-alamat').value = data.alamat || '';
-    
-    // Pastikan format tanggal masuk ke input date HTML (YYYY-MM-DD)
-    document.getElementById('dev-tgl').value = data.tanggal || ''; 
-    
-    document.getElementById('dev-status').value = data.status || 'Belum di setup';
-    document.getElementById('modal-device').classList.remove('hidden');
 }
 
 async function deleteDevice(id) {
     if(confirm("Apakah Anda yakin ingin menghapus data device ini dari cloud?")) {
-        const { error } = await supabaseClient.from('devices').delete().eq('id', id);
-        if(error) alert("Gagal menghapus: " + error.message);
+        await supabaseClient.from('devices').delete().eq('id', id);
         renderDevices();
     }
 }
@@ -324,13 +289,12 @@ async function deleteDevice(id) {
 // 5. CRUD USERS (SUPABASE)
 // ==========================================
 async function renderUsers() {
-    const { data: users, error } = await supabaseClient.from('app_users').select('*');
-    if(error) return;
-    
+    if (!supabaseClient) return;
+    const { data: users } = await supabaseClient.from('app_users').select('*');
     const tbody = document.getElementById('table-user');
-    if(!tbody) return;
     tbody.innerHTML = '';
     
+    if(!users) return;
     users.forEach(u => {
         const roleBadge = u.role === 'Admin' ? `<span class="text-primary font-bold">Admin</span>` : `<span class="text-warning font-bold">Member</span>`;
         const status2FA = u.is_2fa_setup ? `<span class="text-success">Aktif</span>` : `<span class="text-danger">Belum Setup</span>`;
@@ -352,8 +316,8 @@ async function renderUsers() {
 
 async function saveUser() {
     const id = document.getElementById('usr-id').value;
-    const user = document.getElementById('usr-name').value.trim();
-    const pass = document.getElementById('usr-pass').value.trim();
+    const user = document.getElementById('usr-name').value;
+    const pass = document.getElementById('usr-pass').value;
     const role = document.getElementById('usr-role').value;
 
     if(!user || !pass) return alert("Username & Password harus diisi!");
@@ -361,11 +325,9 @@ async function saveUser() {
     const data = { username: user, password: pass, role: role };
 
     if (id) {
-        const { error } = await supabaseClient.from('app_users').update(data).eq('id', id);
-        if(error) alert("Gagal update user: " + error.message);
+        await supabaseClient.from('app_users').update(data).eq('id', id);
     } else {
-        const { error } = await supabaseClient.from('app_users').insert([{ ...data, is_2fa_setup: false }]);
-        if(error) alert("Gagal menambah user: " + error.message);
+        await supabaseClient.from('app_users').insert([{ ...data, is_2fa_setup: false }]);
     }
 
     closeModal('modal-user');
@@ -373,21 +335,20 @@ async function saveUser() {
 }
 
 async function editUser(id) {
-    const { data, error } = await supabaseClient.from('app_users').select('*').eq('id', id).single();
-    if(error || !data) return;
-
-    document.getElementById('title-user').innerText = 'Edit Akses User Cloud';
-    document.getElementById('usr-id').value = data.id;
-    document.getElementById('usr-name').value = data.username || '';
-    document.getElementById('usr-pass').value = data.password || '';
-    document.getElementById('usr-role').value = data.role || 'Member';
-    document.getElementById('modal-user').classList.remove('hidden');
+    const { data } = await supabaseClient.from('app_users').select('*').eq('id', id).single();
+    if(data) {
+        document.getElementById('title-user').innerText = 'Edit Akses User Cloud';
+        document.getElementById('usr-id').value = data.id;
+        document.getElementById('usr-name').value = data.username;
+        document.getElementById('usr-pass').value = data.password;
+        document.getElementById('usr-role').value = data.role;
+        document.getElementById('modal-user').classList.remove('hidden');
+    }
 }
 
 async function deleteUser(id) {
     if(confirm("Hapus hak akses user ini dari cloud?")) {
-        const { error } = await supabaseClient.from('app_users').delete().eq('id', id);
-        if(error) alert("Gagal menghapus: " + error.message);
+        await supabaseClient.from('app_users').delete().eq('id', id);
         renderUsers();
     }
 }
@@ -396,10 +357,7 @@ async function deleteUser(id) {
 // 6. MODALS & EXCEL EXPORT/IMPORT
 // ==========================================
 function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if(!modal) return;
-    modal.classList.remove('hidden');
-
+    document.getElementById(modalId).classList.remove('hidden');
     if(modalId === 'modal-device') {
         document.getElementById('title-device').innerText = 'Tambah Data Device Baru';
         document.getElementById('dev-id').value = '';
@@ -407,11 +365,7 @@ function openModal(modalId) {
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
         document.getElementById('dev-alamat').value = '';
-        
-        // Set default tanggal hari ini pada input date saat modal tambah dibuka
-        const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('dev-tgl').value = todayStr;
-        
+        document.getElementById('dev-tgl').value = '';
         document.getElementById('dev-status').value = 'Belum di setup';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
@@ -423,11 +377,11 @@ function openModal(modalId) {
 }
 
 function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if(modal) modal.classList.add('hidden');
+    document.getElementById(modalId).classList.add('hidden');
 }
 
 async function exportExcel() {
+    if (!supabaseClient) return;
     const { data: devices } = await supabaseClient.from('devices').select('*');
     if (!devices || devices.length === 0) return alert("Belum ada data untuk di-export.");
     const worksheet = XLSX.utils.json_to_sheet(devices);
@@ -447,13 +401,13 @@ async function importExcel(event) {
         const sheetName = workbook.SheetNames[0];
         const importedData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
         
-        if (importedData.length > 0) {
+        if (importedData.length > 0 && supabaseClient) {
             const mappedData = importedData.map(item => ({
                 nama: item.nama || '',
                 sn: item.sn || '',
                 email: item.email || '',
                 alamat: item.alamat || '',
-                tanggal: item.tanggal || new Date().toISOString().split('T')[0],
+                tanggal: item.tanggal || '',
                 status: item.status || 'Belum di setup'
             }));
             
