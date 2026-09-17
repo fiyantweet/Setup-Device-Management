@@ -1,24 +1,48 @@
 // ==========================================
 // KONEKSI SUPABASE CLOUD
 // ==========================================
-// PENTING: Ganti nilai di bawah dengan URL & Anon Key dari Project Settings > API di Supabase Anda
 const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
 
 let supabaseClient = null;
 try {
-    if (window.supabase && SUPABASE_URL !== 'ISI_DENGAN_PROJECT_URL_SUPABASE_ANDA') {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } catch (e) {
     console.error("Gagal menginisialisasi Supabase:", e);
 }
 
 let currentUser = null;
+let currentStatusFilter = ''; // Filter status aktif dari widget dashboard
 
 // ==========================================
-// 1. SISTEM AUTENTIKASI & TOMBOL LOGIN
+// 1. SISTEM AUTENTIKASI & SESSION REFRESH
 // ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+    // Cek apakah user sudah login sebelumnya (Persistence on refresh)
+    const savedUser = localStorage.getItem('autopilot_cloud_session');
+    if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('app-section').classList.remove('hidden');
+        initApp();
+    }
+
+    // Shortcut Enter Listener
+    const loginUser = document.getElementById('login-user');
+    const loginPass = document.getElementById('login-pass');
+    const mfaCode = document.getElementById('mfa-code');
+    const resetUser = document.getElementById('reset-user');
+    const resetPass = document.getElementById('reset-pass');
+    const searchInput = document.getElementById('search-input');
+
+    if(loginUser) loginUser.addEventListener('keypress', e => { if(e.key === 'Enter') loginPass.focus(); });
+    if(loginPass) loginPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleLogin(); });
+    if(mfaCode) mfaCode.addEventListener('keypress', e => { if(e.key === 'Enter') handle2FA(); });
+    if(resetUser) resetUser.addEventListener('keypress', e => { if(e.key === 'Enter') resetPass.focus(); });
+    if(resetPass) resetPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
+    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') searchDevice(); });
+});
+
 function toggleAuth(view) {
     document.getElementById('login-card').classList.add('hidden');
     document.getElementById('mfa-card').classList.add('hidden');
@@ -59,7 +83,7 @@ async function handleLogin() {
         }
 
         if (!users || users.length === 0) {
-            alert("Gagal Login: Username atau Password salah, atau pastikan tabel app_users sudah dibuat di Supabase!");
+            alert("Gagal Login: Username atau Password salah!");
             return;
         }
 
@@ -96,13 +120,17 @@ async function handle2FA() {
     const code = document.getElementById('mfa-code').value.trim();
     
     if (code.length === 6 && !isNaN(code)) {
-        if (!currentUser.is_2fa_setup && supabaseClient) {
+        if (!currentUser.is_2fa_setup) {
             await supabaseClient
                 .from('app_users')
                 .update({ is_2fa_setup: true })
                 .eq('id', currentUser.id);
             currentUser.is_2fa_setup = true;
         }
+        
+        // Simpan sesi ke localStorage agar refresh browser tidak kembali ke login
+        localStorage.setItem('autopilot_cloud_session', JSON.stringify(currentUser));
+
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
         initApp();
@@ -124,15 +152,16 @@ async function handleReset() {
         .select();
 
     if (error || !data || data.length === 0) {
-        alert("Gagal Reset: Username tersebut tidak ditemukan di database Supabase.");
+        alert("Gagal Reset: Username tersebut tidak ditemukan.");
     } else {
-        alert("Reset Password Berhasil! Silakan login kembali dengan password baru.");
+        alert("Reset Password Berhasil! Silakan login kembali.");
         toggleAuth('login');
     }
 }
 
 function logout() {
     currentUser = null;
+    localStorage.removeItem('autopilot_cloud_session'); // Hapus sesi aktif
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
     document.querySelectorAll('.input-form').forEach(el => el.value = '');
@@ -140,26 +169,7 @@ function logout() {
 }
 
 // ==========================================
-// 2. SHORTCUT TOMBOL ENTER & EVENT LISTENERS
-// ==========================================
-document.addEventListener("DOMContentLoaded", () => {
-    const loginUser = document.getElementById('login-user');
-    const loginPass = document.getElementById('login-pass');
-    const mfaCode = document.getElementById('mfa-code');
-    const resetUser = document.getElementById('reset-user');
-    const resetPass = document.getElementById('reset-pass');
-    const searchInput = document.getElementById('search-input');
-
-    if(loginUser) loginUser.addEventListener('keypress', e => { if(e.key === 'Enter') loginPass.focus(); });
-    if(loginPass) loginPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleLogin(); });
-    if(mfaCode) mfaCode.addEventListener('keypress', e => { if(e.key === 'Enter') handle2FA(); });
-    if(resetUser) resetUser.addEventListener('keypress', e => { if(e.key === 'Enter') resetPass.focus(); });
-    if(resetPass) resetPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
-    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') searchDevice(); });
-});
-
-// ==========================================
-// 3. DASHBOARD & INISIALISASI
+// 2. DASHBOARD & INISIALISASI
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
@@ -184,7 +194,6 @@ function switchTab(tabName) {
 }
 
 async function updateDashboardStats() {
-    if (!supabaseClient) return;
     const { data: devices } = await supabaseClient.from('devices').select('*');
     if(!devices) return;
     
@@ -196,8 +205,14 @@ async function updateDashboardStats() {
 }
 
 // ==========================================
-// 4. CRUD DEVICES (SUPABASE)
+// 3. FILTER & CRUD DEVICES
 // ==========================================
+function filterByStatus(status) {
+    currentStatusFilter = status;
+    const searchVal = document.getElementById('search-input').value;
+    renderDevices(searchVal, currentStatusFilter);
+}
+
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
     if(status === 'On progress') return `<span class="badge badge-progress">${status}</span>`;
@@ -206,18 +221,19 @@ function getStatusBadge(status) {
     return status;
 }
 
-async function renderDevices(filterText = '') {
-    if (!supabaseClient) return;
+async function renderDevices(filterText = '', statusFilter = '') {
     const { data: devices, error } = await supabaseClient.from('devices').select('*');
     if (error) { console.error(error); return; }
 
     const tbody = document.getElementById('table-device');
     tbody.innerHTML = '';
 
-    const filtered = (devices || []).filter(d => 
-        (d.nama && d.nama.toLowerCase().includes(filterText.toLowerCase())) || 
-        (d.sn && d.sn.toLowerCase().includes(filterText.toLowerCase()))
-    );
+    const filtered = (devices || []).filter(d => {
+        const matchText = (d.nama && d.nama.toLowerCase().includes(filterText.toLowerCase())) || 
+                          (d.sn && d.sn.toLowerCase().includes(filterText.toLowerCase()));
+        const matchStatus = statusFilter === '' || d.status === statusFilter;
+        return matchText && matchStatus;
+    });
 
     filtered.forEach(d => {
         tbody.innerHTML += `
@@ -239,7 +255,8 @@ async function renderDevices(filterText = '') {
 }
 
 async function searchDevice() {
-    renderDevices(document.getElementById('search-input').value);
+    const searchVal = document.getElementById('search-input').value;
+    renderDevices(searchVal, currentStatusFilter);
 }
 
 async function saveDevice() {
@@ -260,7 +277,7 @@ async function saveDevice() {
     }
     
     closeModal('modal-device');
-    renderDevices();
+    renderDevices('', currentStatusFilter);
 }
 
 async function editDevice(id) {
@@ -281,15 +298,14 @@ async function editDevice(id) {
 async function deleteDevice(id) {
     if(confirm("Apakah Anda yakin ingin menghapus data device ini dari cloud?")) {
         await supabaseClient.from('devices').delete().eq('id', id);
-        renderDevices();
+        renderDevices('', currentStatusFilter);
     }
 }
 
 // ==========================================
-// 5. CRUD USERS (SUPABASE)
+// 4. CRUD USERS
 // ==========================================
 async function renderUsers() {
-    if (!supabaseClient) return;
     const { data: users } = await supabaseClient.from('app_users').select('*');
     const tbody = document.getElementById('table-user');
     tbody.innerHTML = '';
@@ -354,7 +370,7 @@ async function deleteUser(id) {
 }
 
 // ==========================================
-// 6. MODALS & EXCEL EXPORT/IMPORT
+// 5. MODALS & EXCEL EXPORT/IMPORT
 // ==========================================
 function openModal(modalId) {
     document.getElementById(modalId).classList.remove('hidden');
@@ -381,7 +397,6 @@ function closeModal(modalId) {
 }
 
 async function exportExcel() {
-    if (!supabaseClient) return;
     const { data: devices } = await supabaseClient.from('devices').select('*');
     if (!devices || devices.length === 0) return alert("Belum ada data untuk di-export.");
     const worksheet = XLSX.utils.json_to_sheet(devices);
@@ -401,7 +416,7 @@ async function importExcel(event) {
         const sheetName = workbook.SheetNames[0];
         const importedData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
         
-        if (importedData.length > 0 && supabaseClient) {
+        if (importedData.length > 0) {
             const mappedData = importedData.map(item => ({
                 nama: item.nama || '',
                 sn: item.sn || '',
@@ -412,7 +427,7 @@ async function importExcel(event) {
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
-            renderDevices();
+            renderDevices('', currentStatusFilter);
             alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
     };
