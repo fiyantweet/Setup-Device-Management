@@ -2,8 +2,8 @@
 // KONEKSI SUPABASE CLOUD
 // ==========================================
 // PENTING: Ganti nilai di bawah dengan URL & Anon Key dari Project Settings > API di Supabase Anda
-const SUPABASE_URL = 'ISI_DENGAN_PROJECT_URL_SUPABASE_ANDA';
-const SUPABASE_ANON_KEY = 'ISI_DENGAN_ANON_KEY_SUPABASE_ANDA';
+const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
 
 // Inisialisasi Supabase Client
 let supabaseClient = null;
