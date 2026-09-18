@@ -12,22 +12,22 @@ try {
 }
 
 let currentUser = null;
-let currentStatusFilter = ''; // Filter status aktif dari widget dashboard
+let currentStatusFilter = 'All'; // Menyimpan state filter status dari dashboard card
 
 // ==========================================
-// 1. SISTEM AUTENTIKASI & SESSION REFRESH
+// SESSION CHECK PADA SAAT PAGE LOAD/REFRESH
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    // Cek apakah user sudah login sebelumnya (Persistence on refresh)
-    const savedUser = localStorage.getItem('autopilot_cloud_session');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
+    // Cek apakah user sudah login sebelumnya di browser ini
+    const savedSession = localStorage.getItem('autopilot_session');
+    if (savedSession) {
+        currentUser = JSON.parse(savedSession);
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
         initApp();
     }
 
-    // Shortcut Enter Listener
+    // Shortcut Tombol Enter
     const loginUser = document.getElementById('login-user');
     const loginPass = document.getElementById('login-pass');
     const mfaCode = document.getElementById('mfa-code');
@@ -43,6 +43,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') searchDevice(); });
 });
 
+// ==========================================
+// 1. SISTEM AUTENTIKASI
+// ==========================================
 function toggleAuth(view) {
     document.getElementById('login-card').classList.add('hidden');
     document.getElementById('mfa-card').classList.add('hidden');
@@ -127,9 +130,9 @@ async function handle2FA() {
                 .eq('id', currentUser.id);
             currentUser.is_2fa_setup = true;
         }
-        
-        // Simpan sesi ke localStorage agar refresh browser tidak kembali ke login
-        localStorage.setItem('autopilot_cloud_session', JSON.stringify(currentUser));
+
+        // Simpan sesi login ke localStorage agar tahan saat refresh browser
+        localStorage.setItem('autopilot_session', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
@@ -161,12 +164,13 @@ async function handleReset() {
 
 function logout() {
     currentUser = null;
-    localStorage.removeItem('autopilot_cloud_session'); // Hapus sesi aktif
+    localStorage.removeItem('autopilot_session'); // Hapus sesi saat logout
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
     document.querySelectorAll('.input-form').forEach(el => el.value = '');
     toggleAuth('login');
 }
+
 
 // ==========================================
 // 2. DASHBOARD & INISIALISASI
@@ -204,13 +208,20 @@ async function updateDashboardStats() {
     document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
+
 // ==========================================
-// 3. FILTER & CRUD DEVICES
+// 3. FILTER & PENCARIAN DEVICE (STATUS & TANGGAL)
 // ==========================================
 function filterByStatus(status) {
     currentStatusFilter = status;
-    const searchVal = document.getElementById('search-input').value;
-    renderDevices(searchVal, currentStatusFilter);
+    renderDevices(document.getElementById('search-input').value);
+}
+
+function resetFilter() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('filter-date').value = '';
+    currentStatusFilter = 'All';
+    renderDevices();
 }
 
 function getStatusBadge(status) {
@@ -221,18 +232,24 @@ function getStatusBadge(status) {
     return status;
 }
 
-async function renderDevices(filterText = '', statusFilter = '') {
+async function renderDevices(filterText = '') {
     const { data: devices, error } = await supabaseClient.from('devices').select('*');
     if (error) { console.error(error); return; }
 
     const tbody = document.getElementById('table-device');
     tbody.innerHTML = '';
 
+    const filterDate = document.getElementById('filter-date') ? document.getElementById('filter-date').value : '';
+
     const filtered = (devices || []).filter(d => {
-        const matchText = (d.nama && d.nama.toLowerCase().includes(filterText.toLowerCase())) || 
-                          (d.sn && d.sn.toLowerCase().includes(filterText.toLowerCase()));
-        const matchStatus = statusFilter === '' || d.status === statusFilter;
-        return matchText && matchStatus;
+        const matchText = !filterText || 
+            (d.nama && d.nama.toLowerCase().includes(filterText.toLowerCase())) || 
+            (d.sn && d.sn.toLowerCase().includes(filterText.toLowerCase()));
+        
+        const matchStatus = (currentStatusFilter === 'All') || (d.status === currentStatusFilter);
+        const matchDate = !filterDate || (d.tanggal === filterDate);
+
+        return matchText && matchStatus && matchDate;
     });
 
     filtered.forEach(d => {
@@ -255,10 +272,13 @@ async function renderDevices(filterText = '', statusFilter = '') {
 }
 
 async function searchDevice() {
-    const searchVal = document.getElementById('search-input').value;
-    renderDevices(searchVal, currentStatusFilter);
+    renderDevices(document.getElementById('search-input').value);
 }
 
+
+// ==========================================
+// 4. CRUD DEVICES & USERS (SUPABASE)
+// ==========================================
 async function saveDevice() {
     const id = document.getElementById('dev-id').value;
     const data = {
@@ -277,7 +297,7 @@ async function saveDevice() {
     }
     
     closeModal('modal-device');
-    renderDevices('', currentStatusFilter);
+    renderDevices();
 }
 
 async function editDevice(id) {
@@ -296,15 +316,12 @@ async function editDevice(id) {
 }
 
 async function deleteDevice(id) {
-    if(confirm("Apakah Anda yakin ingin menghapus data device ini dari cloud?")) {
+    if(confirm("Apakah Anda yakin ingin menghapus data device ini?")) {
         await supabaseClient.from('devices').delete().eq('id', id);
-        renderDevices('', currentStatusFilter);
+        renderDevices();
     }
 }
 
-// ==========================================
-// 4. CRUD USERS
-// ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
     const tbody = document.getElementById('table-user');
@@ -363,7 +380,7 @@ async function editUser(id) {
 }
 
 async function deleteUser(id) {
-    if(confirm("Hapus hak akses user ini dari cloud?")) {
+    if(confirm("Hapus hak akses user ini?")) {
         await supabaseClient.from('app_users').delete().eq('id', id);
         renderUsers();
     }
@@ -427,7 +444,7 @@ async function importExcel(event) {
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
-            renderDevices('', currentStatusFilter);
+            renderDevices();
             alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
     };

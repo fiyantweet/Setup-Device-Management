@@ -59,6 +59,8 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .tab-content.active { display: block; }
 .dashboard-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 30px; }
 .stat-card { background-color: var(--bg-card); padding: 25px; border-radius: 8px; border: 1px solid var(--border); border-top: 4px solid #444; text-align: center; }
+.clickable-stat { cursor: pointer; transition: 0.2s; }
+.clickable-stat:hover { background-color: var(--bg-hover); border-color: var(--primary); transform: translateY(-2px); }
 .stat-card h3 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; font-weight: bold; }
 .stat-card h2 { font-size: 36px; font-weight: bold; line-height: 1;}
 .box-total { border-top-color: #fff; } .box-total h2 { color: #fff; }

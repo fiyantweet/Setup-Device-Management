@@ -31,7 +31,7 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button id="btn-login" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -87,21 +87,21 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (Klik widget untuk filter tabel) -->
+            <!-- DASHBOARD PROGRESS (KLIKABLE UNTUK FILTER STATUS) -->
             <div class="dashboard-stats">
-                <div class="stat-card box-total" onclick="filterByStatus('')" style="cursor:pointer;" title="Klik untuk tampilkan semua">
+                <div class="stat-card box-total clickable-stat" onclick="filterByStatus('All')" title="Klik untuk tampilkan semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
-                <div class="stat-card box-belum" onclick="filterByStatus('Belum di setup')" style="cursor:pointer;" title="Klik untuk filter Belum di setup">
+                <div class="stat-card box-belum clickable-stat" onclick="filterByStatus('Belum di setup')" title="Klik filter: Belum di setup">
                     <h3>Belum di setup</h3><h2 id="stat-belum">0</h2>
                 </div>
-                <div class="stat-card box-progress" onclick="filterByStatus('On progress')" style="cursor:pointer;" title="Klik untuk filter On progress">
+                <div class="stat-card box-progress clickable-stat" onclick="filterByStatus('On progress')" title="Klik filter: On progress">
                     <h3>On Progress</h3><h2 id="stat-progress">0</h2>
                 </div>
-                <div class="stat-card box-setup" onclick="filterByStatus('Done setup')" style="cursor:pointer;" title="Klik untuk filter Done setup">
+                <div class="stat-card box-setup clickable-stat" onclick="filterByStatus('Done setup')" title="Klik filter: Done setup">
                     <h3>Done Setup</h3><h2 id="stat-setup">0</h2>
                 </div>
-                <div class="stat-card box-deploy" onclick="filterByStatus('Done deploy user')" style="cursor:pointer;" title="Klik untuk filter Done deploy user">
+                <div class="stat-card box-deploy clickable-stat" onclick="filterByStatus('Done deploy user')" title="Klik filter: Done deploy user">
                     <h3>Done Deploy User</h3><h2 id="stat-deploy">0</h2>
                 </div>
             </div>
@@ -110,8 +110,10 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / Serial Number..." style="margin: 0; width: 280px;">
-                        <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 220px;">
+                        <input type="date" id="filter-date" class="input-form" title="Filter Berdasarkan Tanggal Deploy" style="margin: 0; width: 160px;" onchange="searchDevice()">
+                        <button class="btn btn-primary" onclick="searchDevice()">Cari / Filter</button>
+                        <button class="btn btn-secondary" onclick="resetFilter()" title="Reset Filter">Reset</button>
                     </div>
                     <div class="action-box">
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
@@ -181,7 +183,7 @@
             <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Hari, Tanggal, Tahun)</label>
+            <label>Tanggal Deploy (Pilih Hari, Tanggal, Tahun)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
