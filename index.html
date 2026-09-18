@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoPilot Device Manager | Cloud Supabase</title>
+    <title>AutoPilot Device Manager | Supabase Cloud</title>
     <link rel="stylesheet" href="style.css">
     
     <!-- Library SheetJS untuk Export/Import Excel -->
@@ -31,7 +31,7 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button id="btn-login" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -89,19 +89,19 @@
         <div class="container">
             <!-- DASHBOARD PROGRESS (Dapat Diklik untuk Filter) -->
             <div class="dashboard-stats">
-                <div class="stat-card box-total" onclick="filterByCard('all')">
+                <div class="stat-card box-total" onclick="filterByStat('all')" title="Klik untuk tampilkan semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
-                <div class="stat-card box-belum" onclick="filterByCard('Belum di setup')">
+                <div class="stat-card box-belum" onclick="filterByStat('Belum di setup')" title="Klik untuk filter Belum di setup">
                     <h3>Belum di setup</h3><h2 id="stat-belum">0</h2>
                 </div>
-                <div class="stat-card box-progress" onclick="filterByCard('On progress')">
+                <div class="stat-card box-progress" onclick="filterByStat('On progress')" title="Klik untuk filter On progress">
                     <h3>On Progress</h3><h2 id="stat-progress">0</h2>
                 </div>
-                <div class="stat-card box-setup" onclick="filterByCard('Done setup')">
+                <div class="stat-card box-setup" onclick="filterByStat('Done setup')" title="Klik untuk filter Done setup">
                     <h3>Done Setup</h3><h2 id="stat-setup">0</h2>
                 </div>
-                <div class="stat-card box-deploy" onclick="filterByCard('Done deploy user')">
+                <div class="stat-card box-deploy" onclick="filterByStat('Done deploy user')" title="Klik untuk filter Done deploy user">
                     <h3>Done Deploy User</h3><h2 id="stat-deploy">0</h2>
                 </div>
             </div>
@@ -111,26 +111,24 @@
                 <div class="toolbar">
                     <div class="search-box">
                         <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 200px;">
-                        
-                        <!-- Filter Status Deploy -->
-                        <select id="filter-status" class="input-form" style="margin: 0; width: 160px;" onchange="applyFilters()">
-                            <option value="all">Semua Status</option>
+                        <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
+                    </div>
+                    <!-- Filter Lanjutan Berdasarkan Label: Tgl Deploy & Status Deploy -->
+                    <div class="filter-box" style="display: flex; gap: 10px; align-items: center;">
+                        <input type="date" id="filter-date" class="input-form" style="margin:0; width: 150px;" onchange="applyFilters()" title="Filter Tgl Deploy">
+                        <select id="filter-status-dropdown" class="input-form" style="margin:0; width: 160px;" onchange="applyFilters()">
+                            <option value="">Semua Status</option>
                             <option value="Belum di setup">Belum di setup</option>
                             <option value="On progress">On progress</option>
                             <option value="Done setup">Done setup</option>
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
-
-                        <!-- Filter Tgl Deploy -->
-                        <input type="date" id="filter-date" class="input-form" style="margin: 0; width: 150px;" onchange="applyFilters()" title="Filter Berdasarkan Tanggal Deploy">
-                        
-                        <button class="btn btn-secondary" onclick="resetFilters()">Reset Filter</button>
+                        <button class="btn btn-secondary" onclick="resetFilters()" style="padding: 10px;">Reset</button>
                     </div>
-
                     <div class="action-box">
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
-                        <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
-                        <label for="import-file" class="btn btn-import" style="cursor: pointer;">Import Excel</label>
+                        <button class="btn btn-export" onclick="exportExcel()">Export</button>
+                        <label for="import-file" class="btn btn-import" style="cursor: pointer;">Import</label>
                         <input type="file" id="import-file" accept=".xlsx, .xls" hidden onchange="importExcel(event)">
                     </div>
                 </div>
@@ -143,10 +141,10 @@
                                 <th>Serial Number</th>
                                 <th>Email</th>
                                 <th>Alamat Lengkap</th>
-                                <th>Tgl Deploy (DD-MM-YYYY)</th>
+                                <th>Tgl Deploy</th>
                                 <th>Status Deploy</th>
-                                <th>History (Dibuat / Diubah)</th>
-                                <th style="width: 130px;">Aksi</th>
+                                <th>History Log (Dibuat & Diubah)</th>
+                                <th style="width: 120px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="table-device"></tbody>
@@ -168,7 +166,7 @@
                                 <th>Role Akses</th>
                                 <th>Status 2FA</th>
                                 <th>Password</th>
-                                <th style="width: 130px;">Aksi</th>
+                                <th style="width: 140px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="table-user"></tbody>
