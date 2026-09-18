@@ -1,8 +1,8 @@
 // ==========================================
 // KONEKSI SUPABASE CLOUD
 // ==========================================
-const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
+const SUPABASE_URL = 'ISI_DENGAN_PROJECT_URL_SUPABASE_ANDA';
+const SUPABASE_ANON_KEY = 'ISI_DENGAN_ANON_KEY_SUPABASE_ANDA';
 
 let supabaseClient = null;
 try {
@@ -15,38 +15,39 @@ let currentUser = null;
 let allDevicesCache = [];
 
 // ==========================================
-// PERSISTEN SESI & INIT AUTO CHECK
+// SESI PERSISTENCE (CEK REFRESH BROWSER)
 // ==========================================
-document.addEventListener("DOMContentLoaded", async () => {
-    // Cek apakah user sebelumnya sudah login (Persisten Session saat Refresh)
-    const savedSession = localStorage.getItem('autopilot_session');
+window.addEventListener('DOMContentLoaded', () => {
+    const savedSession = localStorage.getItem('autopilot_cloud_session');
     if (savedSession) {
-        try {
-            currentUser = JSON.parse(savedSession);
-            document.getElementById('auth-section').classList.add('hidden');
-            document.getElementById('app-section').classList.remove('hidden');
-            await initApp();
-        } catch (e) {
-            localStorage.removeItem('autopilot_session');
-        }
+        currentUser = JSON.parse(savedSession);
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('app-section').classList.remove('hidden');
+        initApp();
     }
 
     // Shortcut Enter Listener
+    setupEnterListeners();
+});
+
+function setupEnterListeners() {
     const loginUser = document.getElementById('login-user');
     const loginPass = document.getElementById('login-pass');
     const mfaCode = document.getElementById('mfa-code');
     const resetUser = document.getElementById('reset-user');
     const resetPass = document.getElementById('reset-pass');
+    const searchInput = document.getElementById('search-input');
 
     if(loginUser) loginUser.addEventListener('keypress', e => { if(e.key === 'Enter') loginPass.focus(); });
     if(loginPass) loginPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleLogin(); });
     if(mfaCode) mfaCode.addEventListener('keypress', e => { if(e.key === 'Enter') handle2FA(); });
     if(resetUser) resetUser.addEventListener('keypress', e => { if(e.key === 'Enter') resetPass.focus(); });
     if(resetPass) resetPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
-});
+    if(searchInput) searchInput.addEventListener('input', () => applyFilters());
+}
 
 // ==========================================
-// 1. SISTEM AUTENTIKASI
+// 1. AUTENTIKASI & 2FA
 // ==========================================
 function toggleAuth(view) {
     document.getElementById('login-card').classList.add('hidden');
@@ -71,7 +72,7 @@ async function handleLogin() {
     }
 
     if (!supabaseClient || SUPABASE_URL.includes('ISI_DENGAN')) {
-        alert("Konfigurasi Supabase URL dan Anon Key belum diisi di script.js!");
+        alert("Harap masukkan URL dan Anon Key Supabase Anda di file script.js!");
         return;
     }
 
@@ -132,13 +133,13 @@ async function handle2FA() {
                 .eq('id', currentUser.id);
             currentUser.is_2fa_setup = true;
         }
-        
-        // Simpan sesi login ke localStorage agar tahan refresh browser
-        localStorage.setItem('autopilot_session', JSON.stringify(currentUser));
+
+        // Simpan sesi ke LocalStorage agar refresh browser tidak logout
+        localStorage.setItem('autopilot_cloud_session', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
-        await initApp();
+        initApp();
     } else {
         alert("Kode 2FA tidak valid! Harap masukkan 6 digit angka.");
     }
@@ -165,8 +166,8 @@ async function handleReset() {
 }
 
 function logout() {
+    localStorage.removeItem('autopilot_cloud_session');
     currentUser = null;
-    localStorage.removeItem('autopilot_session'); // Hapus sesi persisten
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
     document.querySelectorAll('.input-form').forEach(el => el.value = '');
@@ -174,7 +175,7 @@ function logout() {
 }
 
 // ==========================================
-// 2. INISIALISASI DASHBOARD
+// 2. DASHBOARD & INISIALISASI APLIKASI
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
@@ -188,7 +189,7 @@ async function initApp() {
         switchTab('device');
     }
 
-    await fetchAndRenderDevices();
+    await loadAndRenderDevices();
 }
 
 function switchTab(tabName) {
@@ -199,80 +200,116 @@ function switchTab(tabName) {
 }
 
 // ==========================================
-// 3. FORMAT TANGGAL & HISTORY
+// 3. FORMAT TANGGAL (DD-MM-YYYY) & HISTORY
 // ==========================================
-// Mengubah format YYYY-MM-DD menjadi DD/MM/YYYY (Hari, Bulan, Tahun)
-function formatTanggalID(dateStr) {
-    if (!dateStr) return '';
-    // Jika format sudah DD/MM/YYYY
-    if (dateStr.includes('/')) return dateStr;
+function formatDateToID(dateStr) {
+    if (!dateStr) return '-';
+    // Format input dari type="date" adalah YYYY-MM-DD
     const parts = dateStr.split('-');
     if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return `${parts[2]}-${parts[1]}-${parts[0]}`; // DD-MM-YYYY
     }
     return dateStr;
 }
 
-// Format waktu saat ini untuk history Dibuat / Diubah
-function getCurrentTimestamp() {
-    const now = new Date();
-    const dd = String(now.getDate()).padStart(2, '0');
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const yyyy = now.getFullYear();
-    const hh = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+function formatTimestamp(ts) {
+    if (!ts) return '-';
+    const date = new Date(ts);
+    return date.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 // ==========================================
-// 4. FILTER DASHBOARD & TABEL
+// 4. LOAD & FILTER DEVICES (STAT CARD, STATUS, TGL)
 // ==========================================
-async function fetchAndRenderDevices() {
+async function loadAndRenderDevices() {
     const { data: devices, error } = await supabaseClient.from('devices').select('*');
-    if (error) { console.error(error); return; }
+    if (error) {
+        console.error("Gagal mengambil data devices:", error);
+        return;
+    }
     allDevicesCache = devices || [];
-    updateDashboardStats(allDevicesCache);
-    renderDeviceTable(allDevicesCache);
+    updateDashboardStats();
+    applyFilters();
 }
 
-function updateDashboardStats(devices) {
-    document.getElementById('stat-total').innerText = devices.length;
-    document.getElementById('stat-belum').innerText = devices.filter(d => d.status === 'Belum di setup').length;
-    document.getElementById('stat-progress').innerText = devices.filter(d => d.status === 'On progress').length;
-    document.getElementById('stat-setup').innerText = devices.filter(d => d.status === 'Done setup').length;
-    document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
+function updateDashboardStats() {
+    const total = allDevicesCache.length;
+    const belum = allDevicesCache.filter(d => d.status === 'Belum di setup').length;
+    const progress = allDevicesCache.filter(d => d.status === 'On progress').length;
+    const setup = allDevicesCache.filter(d => d.status === 'Done setup').length;
+    const deploy = allDevicesCache.filter(d => d.status === 'Done deploy user').length;
+
+    document.getElementById('stat-total').innerText = total;
+    document.getElementById('stat-belum').innerText = belum;
+    document.getElementById('stat-progress').innerText = progress;
+    document.getElementById('stat-setup').innerText = setup;
+    document.getElementById('stat-deploy').innerText = deploy;
 }
 
-// Klik Stat Card di atas untuk memfilter berdasarkan status
-function filterByStatus(status) {
-    if (status === 'All') {
-        document.getElementById('filter-status').value = '';
+// Klik pada card statistik untuk filter otomatis
+function filterByCard(status) {
+    if (status === 'all') {
+        document.getElementById('filter-status').value = 'all';
     } else {
         document.getElementById('filter-status').value = status;
     }
-    applyTableFilters();
+    applyFilters();
 }
 
-// Filter Tabel Realtime (Pencarian, Tgl Deploy, dan Status Deploy)
-function applyTableFilters() {
-    const searchVal = document.getElementById('search-input').value.toLowerCase();
-    const tglVal = document.getElementById('filter-tgl').value.toLowerCase();
-    const statusVal = document.getElementById('filter-status').value;
+function resetFilters() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('filter-status').value = 'all';
+    document.getElementById('filter-date').value = '';
+    applyFilters();
+}
+
+function applyFilters() {
+    const searchText = document.getElementById('search-input').value.toLowerCase();
+    const statusFilter = document.getElementById('filter-status').value;
+    const dateFilter = document.getElementById('filter-date').value; // Format YYYY-MM-DD dari input date
 
     const filtered = allDevicesCache.filter(d => {
-        const matchSearch = (d.nama && d.nama.toLowerCase().includes(searchVal)) || 
-                            (d.sn && d.sn.toLowerCase().includes(searchVal)) ||
-                            (d.email && d.email.toLowerCase().includes(searchVal));
-        
-        const formattedTgl = formatTanggalID(d.tanggal || '').toLowerCase();
-        const matchTgl = formattedTgl.includes(tglVal) || (d.tanggal && d.tanggal.toLowerCase().includes(tglVal));
-        
-        const matchStatus = statusVal === '' || d.status === statusVal;
+        const matchSearch = (d.nama && d.nama.toLowerCase().includes(searchText)) || 
+                            (d.sn && d.sn.toLowerCase().includes(searchText));
+        const matchStatus = (statusFilter === 'all' || d.status === statusFilter);
+        const matchDate = (!dateFilter || d.tanggal === dateFilter);
 
-        return matchSearch && matchTgl && matchStatus;
+        return matchSearch && matchStatus && matchDate;
     });
 
     renderDeviceTable(filtered);
+}
+
+function renderDeviceTable(dataList) {
+    const tbody = document.getElementById('table-device');
+    tbody.innerHTML = '';
+
+    if (dataList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">Tidak ada data device yang ditemukan.</td></tr>`;
+        return;
+    }
+
+    dataList.forEach(d => {
+        const formattedDate = formatDateToID(d.tanggal);
+        const createdInfo = formatTimestamp(d.created_at);
+        const updatedInfo = formatTimestamp(d.updated_at);
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${d.nama || ''}</td>
+                <td>${d.sn || ''}</td>
+                <td>${d.email || ''}</td>
+                <td>${d.alamat || ''}</td>
+                <td>${formattedDate}</td>
+                <td>${getStatusBadge(d.status)}</td>
+                <td><small class="text-muted">Dibuat: ${createdInfo}<br>Diubah: ${updatedInfo}</small></td>
+                <td>
+                    <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
+                    <button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
+                </td>
+            </tr>
+        `;
+    });
 }
 
 function getStatusBadge(status) {
@@ -283,58 +320,30 @@ function getStatusBadge(status) {
     return status;
 }
 
-function renderDeviceTable(devices) {
-    const tbody = document.getElementById('table-device');
-    tbody.innerHTML = '';
-
-    devices.forEach(d => {
-        tbody.innerHTML += `
-            <tr>
-                <td>${d.nama || ''}</td>
-                <td>${d.sn || ''}</td>
-                <td>${d.email || ''}</td>
-                <td>${d.alamat || ''}</td>
-                <td>${formatTanggalID(d.tanggal)}</td>
-                <td>${getStatusBadge(d.status)}</td>
-                <td><small style="color:var(--text-muted);">${d.created_at || '-'}</small></td>
-                <td><small style="color:var(--text-muted);">${d.updated_at || '-'}</small></td>
-                <td>
-                    <button class="btn btn-warning" style="padding:4px 8px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
-                    <button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
-                </td>
-            </tr>
-        `;
-    });
-}
-
 // ==========================================
 // 5. CRUD DEVICES (SUPABASE)
 // ==========================================
 async function saveDevice() {
     const id = document.getElementById('dev-id').value;
-    const existingCreatedAt = document.getElementById('dev-created-at').value;
-    const nowTime = getCurrentTimestamp();
-
     const data = {
         nama: document.getElementById('dev-nama').value,
         sn: document.getElementById('dev-sn').value,
         email: document.getElementById('dev-email').value,
         alamat: document.getElementById('dev-alamat').value,
-        tanggal: document.getElementById('dev-tgl').value, // Input format HTML date YYYY-MM-DD
+        tanggal: document.getElementById('dev-tgl').value, // YYYY-MM-DD
         status: document.getElementById('dev-status').value,
-        updated_at: nowTime
+        updated_at: new Date().toISOString()
     };
 
     if (id) {
-        data.created_at = existingCreatedAt || nowTime;
         await supabaseClient.from('devices').update(data).eq('id', id);
     } else {
-        data.created_at = nowTime;
+        data.created_at = new Date().toISOString();
         await supabaseClient.from('devices').insert([data]);
     }
     
     closeModal('modal-device');
-    await fetchAndRenderDevices();
+    loadAndRenderDevices();
 }
 
 async function editDevice(id) {
@@ -342,26 +351,25 @@ async function editDevice(id) {
     if(data) {
         document.getElementById('title-device').innerText = 'Edit Status & Data Deploy';
         document.getElementById('dev-id').value = data.id;
-        document.getElementById('dev-created-at').value = data.created_at || '';
-        document.getElementById('dev-nama').value = data.nama || '';
-        document.getElementById('dev-sn').value = data.sn || '';
-        document.getElementById('dev-email').value = data.email || '';
-        document.getElementById('dev-alamat').value = data.alamat || '';
-        document.getElementById('dev-tgl').value = data.tanggal || '';
-        document.getElementById('dev-status').value = data.status || 'Belum di setup';
+        document.getElementById('dev-nama').value = data.nama;
+        document.getElementById('dev-sn').value = data.sn;
+        document.getElementById('dev-email').value = data.email;
+        document.getElementById('dev-alamat').value = data.alamat;
+        document.getElementById('dev-tgl').value = data.tanggal;
+        document.getElementById('dev-status').value = data.status;
         document.getElementById('modal-device').classList.remove('hidden');
     }
 }
 
 async function deleteDevice(id) {
-    if(confirm("Apakah Anda yakin ingin menghapus data device ini dari cloud?")) {
+    if(confirm("Apakah Anda yakin ingin menghapus data device ini?")) {
         await supabaseClient.from('devices').delete().eq('id', id);
-        await fetchAndRenderDevices();
+        loadAndRenderDevices();
     }
 }
 
 // ==========================================
-// 6. CRUD USERS (SUPABASE)
+// 6. CRUD USERS (ADMIN)
 // ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
@@ -435,7 +443,6 @@ function openModal(modalId) {
     if(modalId === 'modal-device') {
         document.getElementById('title-device').innerText = 'Tambah Data Device Baru';
         document.getElementById('dev-id').value = '';
-        document.getElementById('dev-created-at').value = '';
         document.getElementById('dev-nama').value = '';
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
@@ -456,7 +463,7 @@ function closeModal(modalId) {
 }
 
 async function exportExcel() {
-    if (allDevicesCache.length === 0) return alert("Belum ada data untuk di-export.");
+    if (!allDevicesCache || allDevicesCache.length === 0) return alert("Belum ada data untuk di-export.");
     const worksheet = XLSX.utils.json_to_sheet(allDevicesCache);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "DataDeploy");
@@ -475,20 +482,19 @@ async function importExcel(event) {
         const importedData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
         
         if (importedData.length > 0) {
-            const nowTime = getCurrentTimestamp();
             const mappedData = importedData.map(item => ({
                 nama: item.nama || '',
                 sn: item.sn || '',
                 email: item.email || '',
                 alamat: item.alamat || '',
-                tanggal: item.tanggal || '',
+                tanggal: item.tanggal || new Date().toISOString().split('T')[0],
                 status: item.status || 'Belum di setup',
-                created_at: item.created_at || nowTime,
-                updated_at: nowTime
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
-            await fetchAndRenderDevices();
+            loadAndRenderDevices();
             alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
     };

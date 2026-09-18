@@ -17,6 +17,8 @@
 
     <!-- ==================== HALAMAN AUTENTIKASI ==================== -->
     <div id="auth-section" class="flex-center">
+        
+        <!-- Form Login -->
         <div id="login-card" class="card relative">
             <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Hidden Demo Area"></div>
 
@@ -29,13 +31,14 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button id="btn-login" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
             </div>
         </div>
 
+        <!-- Form 2FA Authenticator -->
         <div id="mfa-card" class="card hidden">
             <h2>Verifikasi <span class="text-primary">2FA</span></h2>
             <p id="mfa-instruction" class="text-muted mb-20">Masukkan 6 digit kode dari aplikasi Authenticator Anda.</p>
@@ -52,6 +55,7 @@
             </div>
         </div>
 
+        <!-- Form Reset Password -->
         <div id="reset-card" class="card hidden">
             <h2>Reset <span class="text-warning">Password</span></h2>
             <p class="text-muted mb-20">Bypass verifikasi email. Ubah password akses langsung.</p>
@@ -83,21 +87,21 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (Dapat diklik untuk filter status) -->
+            <!-- DASHBOARD PROGRESS (Dapat Diklik untuk Filter) -->
             <div class="dashboard-stats">
-                <div class="stat-card box-total" onclick="filterByStatus('All')" title="Klik untuk tampilkan semua">
+                <div class="stat-card box-total" onclick="filterByCard('all')">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
-                <div class="stat-card box-belum" onclick="filterByStatus('Belum di setup')" title="Filter: Belum di setup">
+                <div class="stat-card box-belum" onclick="filterByCard('Belum di setup')">
                     <h3>Belum di setup</h3><h2 id="stat-belum">0</h2>
                 </div>
-                <div class="stat-card box-progress" onclick="filterByStatus('On progress')" title="Filter: On progress">
+                <div class="stat-card box-progress" onclick="filterByCard('On progress')">
                     <h3>On Progress</h3><h2 id="stat-progress">0</h2>
                 </div>
-                <div class="stat-card box-setup" onclick="filterByStatus('Done setup')" title="Filter: Done setup">
+                <div class="stat-card box-setup" onclick="filterByCard('Done setup')">
                     <h3>Done Setup</h3><h2 id="stat-setup">0</h2>
                 </div>
-                <div class="stat-card box-deploy" onclick="filterByStatus('Done deploy user')" title="Filter: Done deploy user">
+                <div class="stat-card box-deploy" onclick="filterByCard('Done deploy user')">
                     <h3>Done Deploy User</h3><h2 id="stat-deploy">0</h2>
                 </div>
             </div>
@@ -106,16 +110,23 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / Serial Number..." style="margin: 0; width: 220px;" onkeyup="applyTableFilters()">
-                        <input type="text" id="filter-tgl" class="input-form" placeholder="Filter Tgl (DD/MM/YYYY)..." style="margin: 0; width: 180px;" onkeyup="applyTableFilters()">
-                        <select id="filter-status" class="input-form" style="margin: 0; width: 180px;" onchange="applyTableFilters()">
-                            <option value="">Semua Status</option>
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 200px;">
+                        
+                        <!-- Filter Status Deploy -->
+                        <select id="filter-status" class="input-form" style="margin: 0; width: 160px;" onchange="applyFilters()">
+                            <option value="all">Semua Status</option>
                             <option value="Belum di setup">Belum di setup</option>
                             <option value="On progress">On progress</option>
                             <option value="Done setup">Done setup</option>
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
+
+                        <!-- Filter Tgl Deploy -->
+                        <input type="date" id="filter-date" class="input-form" style="margin: 0; width: 150px;" onchange="applyFilters()" title="Filter Berdasarkan Tanggal Deploy">
+                        
+                        <button class="btn btn-secondary" onclick="resetFilters()">Reset Filter</button>
                     </div>
+
                     <div class="action-box">
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
                         <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
@@ -132,10 +143,9 @@
                                 <th>Serial Number</th>
                                 <th>Email</th>
                                 <th>Alamat Lengkap</th>
-                                <th>Tgl Deploy (DD/MM/YYYY)</th>
+                                <th>Tgl Deploy (DD-MM-YYYY)</th>
                                 <th>Status Deploy</th>
-                                <th>Dibuat (History)</th>
-                                <th>Diubah (History)</th>
+                                <th>History (Dibuat / Diubah)</th>
                                 <th style="width: 130px;">Aksi</th>
                             </tr>
                         </thead>
@@ -158,7 +168,7 @@
                                 <th>Role Akses</th>
                                 <th>Status 2FA</th>
                                 <th>Password</th>
-                                <th style="width: 140px;">Aksi</th>
+                                <th style="width: 130px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="table-user"></tbody>
@@ -173,7 +183,6 @@
         <div class="modal-box">
             <h2 id="title-device" class="text-primary mb-20">Form Deploy Device</h2>
             <input type="hidden" id="dev-id">
-            <input type="hidden" id="dev-created-at">
             
             <label>Nama User (Penerima)</label>
             <input type="text" id="dev-nama" class="input-form" placeholder="Nama Karyawan/User">
@@ -187,7 +196,7 @@
             <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Pilih Calendar)</label>
+            <label>Tanggal Deploy (Hari, Tanggal, Tahun)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
