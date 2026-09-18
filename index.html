@@ -87,21 +87,21 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (Dapat Diklik untuk Filter) -->
+            <!-- DASHBOARD PROGRESS (Bisa Diklik untuk Filter) -->
             <div class="dashboard-stats">
-                <div class="stat-card box-total" onclick="filterByStat('all')" title="Klik untuk tampilkan semua">
+                <div class="stat-card box-total" onclick="filterByStatus('All')" style="cursor:pointer;" title="Klik tampilkan semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
-                <div class="stat-card box-belum" onclick="filterByStat('Belum di setup')" title="Klik untuk filter Belum di setup">
+                <div class="stat-card box-belum" onclick="filterByStatus('Belum di setup')" style="cursor:pointer;" title="Klik filter Belum di setup">
                     <h3>Belum di setup</h3><h2 id="stat-belum">0</h2>
                 </div>
-                <div class="stat-card box-progress" onclick="filterByStat('On progress')" title="Klik untuk filter On progress">
+                <div class="stat-card box-progress" onclick="filterByStatus('On progress')" style="cursor:pointer;" title="Klik filter On Progress">
                     <h3>On Progress</h3><h2 id="stat-progress">0</h2>
                 </div>
-                <div class="stat-card box-setup" onclick="filterByStat('Done setup')" title="Klik untuk filter Done setup">
+                <div class="stat-card box-setup" onclick="filterByStatus('Done setup')" style="cursor:pointer;" title="Klik filter Done Setup">
                     <h3>Done Setup</h3><h2 id="stat-setup">0</h2>
                 </div>
-                <div class="stat-card box-deploy" onclick="filterByStat('Done deploy user')" title="Klik untuk filter Done deploy user">
+                <div class="stat-card box-deploy" onclick="filterByStatus('Done deploy user')" style="cursor:pointer;" title="Klik filter Done Deploy">
                     <h3>Done Deploy User</h3><h2 id="stat-deploy">0</h2>
                 </div>
             </div>
@@ -110,25 +110,17 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 200px;">
-                        <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
-                    </div>
-                    <!-- Filter Lanjutan Berdasarkan Label: Tgl Deploy & Status Deploy -->
-                    <div class="filter-box" style="display: flex; gap: 10px; align-items: center;">
-                        <input type="date" id="filter-date" class="input-form" style="margin:0; width: 150px;" onchange="applyFilters()" title="Filter Tgl Deploy">
-                        <select id="filter-status-dropdown" class="input-form" style="margin:0; width: 160px;" onchange="applyFilters()">
-                            <option value="">Semua Status</option>
-                            <option value="Belum di setup">Belum di setup</option>
-                            <option value="On progress">On progress</option>
-                            <option value="Done setup">Done setup</option>
-                            <option value="Done deploy user">Done deploy user</option>
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / Serial Number..." style="margin: 0; width: 220px;">
+                        <select id="sort-select" class="input-form" style="margin: 0; width: 180px;" onchange="renderDevices()">
+                            <option value="oldest">Tgl Deploy: Awal (Terlama)</option>
+                            <option value="newest">Tgl Deploy: Terbaru</option>
                         </select>
-                        <button class="btn btn-secondary" onclick="resetFilters()" style="padding: 10px;">Reset</button>
+                        <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
                     </div>
                     <div class="action-box">
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
-                        <button class="btn btn-export" onclick="exportExcel()">Export</button>
-                        <label for="import-file" class="btn btn-import" style="cursor: pointer;">Import</label>
+                        <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
+                        <label for="import-file" class="btn btn-import" style="cursor: pointer;">Import Excel</label>
                         <input type="file" id="import-file" accept=".xlsx, .xls" hidden onchange="importExcel(event)">
                     </div>
                 </div>
@@ -143,7 +135,7 @@
                                 <th>Alamat Lengkap</th>
                                 <th>Tgl Deploy</th>
                                 <th>Status Deploy</th>
-                                <th>History Log (Dibuat & Diubah)</th>
+                                <th>History / Riwayat Status</th>
                                 <th style="width: 120px;">Aksi</th>
                             </tr>
                         </thead>
@@ -194,7 +186,7 @@
             <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Hari, Tanggal, Tahun)</label>
+            <label>Tanggal Deploy (Hari, Bulan, Tahun)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
