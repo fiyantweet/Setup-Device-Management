@@ -8,17 +8,15 @@ let supabaseClient = null;
 try {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } catch (e) {
-    console.error("Gagal menginisialisasi Supabase:", e);
+    console.error("Gagal inisialisasi Supabase:", e);
 }
 
 let currentUser = null;
 let allDevicesCache = [];
 
-// ==========================================
-// SESSION PERSISTENCE (CEK REFRESH BROWSER)
-// ==========================================
+// Cek Sesi Sembuh dari Refresh Browser (Session Persistence)
 window.addEventListener('DOMContentLoaded', () => {
-    const savedUser = localStorage.getItem('autopilot_cloud_session');
+    const savedUser = localStorage.getItem('autopilot_session_user');
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
         document.getElementById('auth-section').classList.add('hidden');
@@ -26,24 +24,33 @@ window.addEventListener('DOMContentLoaded', () => {
         initApp();
     }
 
-    // Shortcut Tombol Enter
+    // Shortcut Enter Listener
     setupEnterListeners();
 });
 
 function setupEnterListeners() {
-    const bind = (id, fn) => {
+    const map = [
+        ['login-user', 'login-pass'],
+        ['login-pass', handleLogin],
+        ['mfa-code', handle2FA],
+        ['reset-user', 'reset-pass'],
+        ['reset-pass', handleReset]
+    ];
+    map.forEach(([id, target]) => {
         const el = document.getElementById(id);
-        if(el) el.addEventListener('keypress', e => { if(e.key === 'Enter') fn(); });
-    };
-    bind('login-user', () => document.getElementById('login-pass').focus());
-    bind('login-pass', handleLogin);
-    bind('mfa-code', handle2FA);
-    bind('reset-user', () => document.getElementById('reset-pass').focus());
-    bind('reset-pass', handleReset);
+        if(el) {
+            el.addEventListener('keypress', e => {
+                if(e.key === 'Enter') {
+                    if(typeof target === 'function') target();
+                    else document.getElementById(target)?.focus();
+                }
+            });
+        }
+    });
 }
 
 // ==========================================
-// 1. SISTEM AUTENTIKASI
+// 1. AUTENTIKASI & REFRESH PERSISTENCE
 // ==========================================
 function toggleAuth(view) {
     document.getElementById('login-card').classList.add('hidden');
@@ -62,32 +69,26 @@ async function handleLogin() {
     const user = document.getElementById('login-user').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
     
-    if (!user || !pass) return alert("Username dan Password tidak boleh kosong!");
+    if (!user || !pass) return alert("Username dan Password wajib diisi!");
     if (!supabaseClient || SUPABASE_URL.includes('ISI_DENGAN')) {
-        alert("Konfigurasi Supabase URL dan Anon Key belum diisi di script.js!");
+        return alert("Harap isi URL & Anon Key Supabase di script.js!");
+    }
+
+    const { data: users, error } = await supabaseClient
+        .from('app_users')
+        .select('*')
+        .eq('username', user)
+        .eq('password', pass);
+
+    if (error || !users || users.length === 0) {
+        alert("Gagal Login: Username atau Password salah!");
         return;
     }
 
-    try {
-        const { data: users, error } = await supabaseClient
-            .from('app_users')
-            .select('*')
-            .eq('username', user)
-            .eq('password', pass);
-
-        if (error || !users || users.length === 0) {
-            alert("Gagal Login: Username atau Password salah!");
-            return;
-        }
-
-        currentUser = users[0];
-        toggleAuth('mfa');
-        prepareAuthenticator(currentUser);
-        setTimeout(() => document.getElementById('mfa-code').focus(), 100);
-    } catch (err) {
-        console.error("Login Error:", err);
-        alert("Terjadi kesalahan koneksi database.");
-    }
+    currentUser = users[0];
+    toggleAuth('mfa');
+    prepareAuthenticator(currentUser);
+    setTimeout(() => document.getElementById('mfa-code').focus(), 100);
 }
 
 function prepareAuthenticator(account) {
@@ -99,11 +100,11 @@ function prepareAuthenticator(account) {
     if (!account.is_2fa_setup) {
         qrContainer.classList.remove('hidden');
         instruction.innerText = "SETUP PERTAMA: Buka Authenticator dan Scan Barcode ini.";
-        const otpUrl = `otpauth://totp/AutoPilot_Cloud:${account.username}?secret=JBSWY3DPEHPK3PXP&issuer=AutoPilotCloud`;
-        new QRCode(qrDiv, { text: otpUrl, width: 140, height: 140, colorDark: "#000", colorLight: "#fff" });
+        const otpUrl = `otpauth://totp/AutoPilot_Cloud:${account.username}?secret=JBSWY3DPEHPK3PXP&issuer=AutoPilot_Cloud`;
+        new QRCode(qrDiv, { text: otpUrl, width: 130, height: 130, colorDark: "#000", colorLight: "#fff" });
     } else {
         qrContainer.classList.add('hidden');
-        instruction.innerText = "Masukkan 6 digit kode dari aplikasi Authenticator Anda.";
+        instruction.innerText = "Masukkan 6 digit kode dari aplikasi Authenticator.";
     }
 }
 
@@ -114,9 +115,9 @@ async function handle2FA() {
             await supabaseClient.from('app_users').update({ is_2fa_setup: true }).eq('id', currentUser.id);
             currentUser.is_2fa_setup = true;
         }
-        // Simpan Sesi Login agar tidak hilang saat refresh
-        localStorage.setItem('autopilot_cloud_session', JSON.stringify(currentUser));
-
+        // Simpan Sesi Ke LocalStorage Agar Refresh Tidak Logout
+        localStorage.setItem('autopilot_session_user', JSON.stringify(currentUser));
+        
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
         initApp();
@@ -131,22 +132,17 @@ async function handleReset() {
     
     if(!user || !newPass) return alert("Isi Username dan Password Baru!");
 
-    const { data, error } = await supabaseClient
-        .from('app_users')
-        .update({ password: newPass })
-        .eq('username', user)
-        .select();
-
+    const { data, error } = await supabaseClient.from('app_users').update({ password: newPass }).eq('username', user).select();
     if (error || !data || data.length === 0) {
-        alert("Username tidak ditemukan di database.");
+        alert("Username tidak ditemukan di database!");
     } else {
-        alert("Reset Password Berhasil! Silakan login.");
+        alert("Reset Password Berhasil! Silakan login kembali.");
         toggleAuth('login');
     }
 }
 
 function logout() {
-    localStorage.removeItem('autopilot_cloud_session');
+    localStorage.removeItem('autopilot_session_user');
     currentUser = null;
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
@@ -155,7 +151,7 @@ function logout() {
 }
 
 // ==========================================
-// 2. INISIALISASI & DASHBOARD
+// 2. DASHBOARD & STATS FILTER
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
@@ -169,7 +165,7 @@ async function initApp() {
         switchTab('device');
     }
 
-    await fetchAndRenderDevices();
+    await fetchAndCacheDevices();
 }
 
 function switchTab(tabName) {
@@ -179,83 +175,77 @@ function switchTab(tabName) {
     event.currentTarget.classList.add('active');
 }
 
-function updateDashboardStats(devicesData) {
-    const total = devicesData.length;
-    const belum = devicesData.filter(d => d.status === 'Belum di setup').length;
-    const progress = devicesData.filter(d => d.status === 'On progress').length;
-    const doneSetup = devicesData.filter(d => d.status === 'Done setup').length;
-    const doneDeploy = devicesData.filter(d => d.status === 'Done deploy user').length;
-
-    document.getElementById('stat-total').innerText = total;
-    document.getElementById('stat-belum').innerText = belum;
-    document.getElementById('stat-progress').innerText = progress;
-    document.getElementById('stat-donesetup').innerText = doneSetup;
-    document.getElementById('stat-donedeploy').innerText = doneDeploy;
+async function fetchAndCacheDevices() {
+    const { data, error } = await supabaseClient.from('devices').select('*').order('id', { ascending: false });
+    if (!error) {
+        allDevicesCache = data || [];
+        updateDashboardStats();
+        applyTableFilters();
+    }
 }
 
-// ==========================================
-// 3. FORMAT TANGGAL & FILTER KARTU STATISTIK
-// ==========================================
-// Format YYYY-MM-DD ke DD/MM/YYYY lengkap dengan Nama Hari
-function formatDateIndo(dateStr) {
-    if (!dateStr) return '-';
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return dateStr;
-    const year = parts[0];
-    const month = parts[1];
-    const day = parts[2];
-    
-    // Urutan: Tanggal, Bulan kemudian Tahun (DD/MM/YYYY)
-    const formattedDateOnly = `${day}/${month}/${year}`;
-    
-    // Tambahkan info Hari (Opsional jika ingin lengkap)
-    const dateObj = new Date(dateStr);
-    const options = { weekday: 'long' };
-    const dayName = isNaN(dateObj.getTime()) ? '' : dateObj.toLocaleDateString('id-ID', options);
-
-    return dayName ? `${dayName}, ${formattedDateOnly}` : formattedDateOnly;
+function updateDashboardStats() {
+    document.getElementById('stat-total').innerText = allDevicesCache.length;
+    document.getElementById('stat-belum').innerText = allDevicesCache.filter(d => d.status === 'Belum di setup').length;
+    document.getElementById('stat-progress').innerText = allDevicesCache.filter(d => d.status === 'On progress').length;
+    document.getElementById('stat-donesetup').innerText = allDevicesCache.filter(d => d.status === 'Done setup').length;
+    document.getElementById('stat-donedeploy').innerText = allDevicesCache.filter(d => d.status === 'Done deploy user').length;
 }
 
-let activeCardFilter = 'all';
-
-function filterByCard(status) {
-    activeCardFilter = status;
-    // Sinkronkan dropdown status
-    document.getElementById('filter-status').value = status === 'all' ? '' : status;
-    applyFilters();
+// Klik pada Statistik Dashboard untuk Filter Cepat
+function filterByStatus(statusName) {
+    if (statusName === 'All') {
+        document.getElementById('filter-status').value = '';
+    } else {
+        document.getElementById('filter-status').value = statusName;
+    }
+    applyTableFilters();
 }
 
 function resetFilters() {
     document.getElementById('search-input').value = '';
     document.getElementById('filter-status').value = '';
     document.getElementById('filter-date').value = '';
-    activeCardFilter = 'all';
-    applyFilters();
+    applyTableFilters();
 }
 
-async function fetchAndRenderDevices() {
-    const { data, error } = await supabaseClient.from('devices').select('*').order('id', { ascending: false });
-    if (error) { console.error(error); return; }
-    allDevicesCache = data || [];
-    updateDashboardStats(allDevicesCache);
-    applyFilters();
+// Format Tanggal: YYYY-MM-DD Menjadi DD-MM-YYYY dengan Nama Hari
+function formatDisplayDate(dateStr) {
+    if (!dateStr) return '-';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        const [year, month, day] = parts;
+        const dateObj = new Date(year, month - 1, day);
+        const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' };
+        return dateObj.toLocaleDateString('id-ID', options); // Contoh: Jumat, 18/09/2026
+    }
+    return dateStr;
 }
 
-function applyFilters() {
-    const searchVal = document.getElementById('search-input').value.toLowerCase();
-    const statusVal = document.getElementById('filter-status').value;
-    const dateVal = document.getElementById('filter-date').value; // Format: YYYY-MM-DD
+function formatTimestamp(ts) {
+    if (!ts) return 'Baru saja';
+    const d = new Date(ts);
+    return d.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+}
 
-    let filtered = allDevicesCache.filter(d => {
-        const matchSearch = (d.nama && d.nama.toLowerCase().includes(searchVal)) || (d.sn && d.sn.toLowerCase().includes(searchVal));
-        const matchStatusCard = (activeCardFilter === 'all' || d.status === activeCardFilter);
-        const matchStatusDropdown = (!statusVal || d.status === statusVal);
-        const matchDate = (!dateVal || d.tanggal === dateVal);
+// ==========================================
+// 3. TABLE FILTERING & RENDER
+// ==========================================
+function applyTableFilters() {
+    const textSearch = document.getElementById('search-input').value.toLowerCase();
+    const statusFilter = document.getElementById('filter-status').value;
+    const dateFilter = document.getElementById('filter-date').value; // Format YYYY-MM-DD dari input type date
 
-        return matchSearch && matchStatusCard && matchStatusDropdown && matchDate;
+    const filtered = allDevicesCache.filter(d => {
+        const matchText = (d.nama && d.nama.toLowerCase().includes(textSearch)) || 
+                          (d.sn && d.sn.toLowerCase().includes(textSearch));
+        const matchStatus = statusFilter === '' || d.status === statusFilter;
+        const matchDate = dateFilter === '' || d.tanggal === dateFilter;
+
+        return matchText && matchStatus && matchDate;
     });
 
-    renderDeviceTable(filtered);
+    renderDeviceTableDOM(filtered);
 }
 
 function getStatusBadge(status) {
@@ -266,26 +256,27 @@ function getStatusBadge(status) {
     return status;
 }
 
-function renderDeviceTable(devices) {
+function renderDeviceTableDOM(dataList) {
     const tbody = document.getElementById('table-device');
     tbody.innerHTML = '';
 
-    if (devices.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Tidak ada data device ditemukan.</td></tr>`;
+    if (dataList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted" style="padding:30px;">Tidak ada data device yang sesuai.</td></tr>`;
         return;
     }
 
-    devices.forEach(d => {
+    dataList.forEach(d => {
+        const historyText = `Dibuat: ${formatTimestamp(d.created_at)}<br>Diubah: ${formatTimestamp(d.updated_at)}`;
         tbody.innerHTML += `
             <tr>
                 <td>${d.nama || ''}</td>
                 <td>${d.sn || ''}</td>
                 <td>${d.email || ''}</td>
                 <td>${d.alamat || ''}</td>
-                <td>${formatDateIndo(d.tanggal)}</td>
+                <td>${formatDisplayDate(d.tanggal)}</td>
                 <td>${getStatusBadge(d.status)}</td>
+                <td style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">${historyText}</td>
                 <td>
-                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="showHistory(${d.id})">History</button>
                     <button class="btn btn-warning" style="padding:4px 8px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
                     <button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
                 </td>
@@ -295,31 +286,31 @@ function renderDeviceTable(devices) {
 }
 
 // ==========================================
-// 4. CRUD DEVICES & HISTORY
+// 4. CRUD DEVICES (SUPABASE + HISTORY TIMESTAMP)
 // ==========================================
 async function saveDevice() {
     const id = document.getElementById('dev-id').value;
-    const nowIso = new Date().toISOString();
+    const nowISO = new Date().toISOString();
 
     const data = {
         nama: document.getElementById('dev-nama').value,
         sn: document.getElementById('dev-sn').value,
         email: document.getElementById('dev-email').value,
         alamat: document.getElementById('dev-alamat').value,
-        tanggal: document.getElementById('dev-tgl').value, // Format YYYY-MM-DD dari kalender
+        tanggal: document.getElementById('dev-tgl').value,
         status: document.getElementById('dev-status').value,
-        updated_at: nowIso
+        updated_at: nowISO
     };
 
     if (id) {
         await supabaseClient.from('devices').update(data).eq('id', id);
     } else {
-        data.created_at = nowIso;
+        data.created_at = nowISO;
         await supabaseClient.from('devices').insert([data]);
     }
     
     closeModal('modal-device');
-    fetchAndRenderDevices();
+    fetchAndCacheDevices();
 }
 
 async function editDevice(id) {
@@ -331,42 +322,17 @@ async function editDevice(id) {
         document.getElementById('dev-sn').value = data.sn;
         document.getElementById('dev-email').value = data.email;
         document.getElementById('dev-alamat').value = data.alamat;
-        document.getElementById('dev-tgl').value = data.tanggal || '';
+        document.getElementById('dev-tgl').value = data.tanggal;
         document.getElementById('dev-status').value = data.status;
         document.getElementById('modal-device').classList.remove('hidden');
     }
 }
 
 async function deleteDevice(id) {
-    if(confirm("Apakah Anda yakin ingin menghapus data device ini dari cloud?")) {
+    if(confirm("Yakin ingin menghapus data device ini dari cloud?")) {
         await supabaseClient.from('devices').delete().eq('id', id);
-        fetchAndRenderDevices();
+        fetchAndCacheDevices();
     }
-}
-
-// Fitur Menampilkan History Dibuat dan Diubah
-async function showHistory(id) {
-    const { data, error } = await supabaseClient.from('devices').select('created_at, updated_at, nama').eq('id', id).single();
-    if (error || !data) {
-        alert("Gagal memuat riwayat history.");
-        return;
-    }
-
-    const formatTimestamp = (ts) => {
-        if (!ts) return '-';
-        const date = new Date(ts);
-        return isNaN(date.getTime()) ? ts : date.toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'medium' });
-    };
-
-    const contentDiv = document.getElementById('history-content');
-    contentDiv.innerHTML = `
-        <p><strong>Nama User:</strong> ${data.nama}</p>
-        <hr style="border-color: var(--border); margin: 10px 0;">
-        <p><strong>📅 Dibuat Pada:</strong><br><span class="text-primary">${formatTimestamp(data.created_at)}</span></p>
-        <br>
-        <p><strong>🔄 Terakhir Diubah:</strong><br><span class="text-warning">${formatTimestamp(data.updated_at)}</span></p>
-    `;
-    document.getElementById('modal-history').classList.remove('hidden');
 }
 
 // ==========================================
@@ -406,7 +372,6 @@ async function saveUser() {
     if(!user || !pass) return alert("Username & Password harus diisi!");
 
     const data = { username: user, password: pass, role: role };
-
     if (id) {
         await supabaseClient.from('app_users').update(data).eq('id', id);
     } else {
@@ -448,7 +413,7 @@ function openModal(modalId) {
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
         document.getElementById('dev-alamat').value = '';
-        document.getElementById('dev-tgl').value = '';
+        document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0]; // Default hari ini
         document.getElementById('dev-status').value = 'Belum di setup';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
@@ -464,7 +429,7 @@ function closeModal(modalId) {
 }
 
 async function exportExcel() {
-    if (!allDevicesCache || allDevicesCache.length === 0) return alert("Belum ada data untuk di-export.");
+    if (allDevicesCache.length === 0) return alert("Belum ada data untuk di-export.");
     const worksheet = XLSX.utils.json_to_sheet(allDevicesCache);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "DataDeploy");
@@ -483,20 +448,20 @@ async function importExcel(event) {
         const importedData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
         
         if (importedData.length > 0) {
-            const nowIso = new Date().toISOString();
+            const nowISO = new Date().toISOString();
             const mappedData = importedData.map(item => ({
                 nama: item.nama || '',
                 sn: item.sn || '',
                 email: item.email || '',
                 alamat: item.alamat || '',
-                tanggal: item.tanggal || '',
+                tanggal: item.tanggal || new Date().toISOString().split('T')[0],
                 status: item.status || 'Belum di setup',
-                created_at: nowIso,
-                updated_at: nowIso
+                created_at: nowISO,
+                updated_at: nowISO
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
-            fetchAndRenderDevices();
+            fetchAndCacheDevices();
             alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
     };
