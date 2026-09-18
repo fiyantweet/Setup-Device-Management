@@ -17,7 +17,6 @@
 
     <!-- ==================== HALAMAN AUTENTIKASI ==================== -->
     <div id="auth-section" class="flex-center">
-        
         <!-- Form Login -->
         <div id="login-card" class="card relative">
             <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Hidden Demo Area"></div>
@@ -31,7 +30,7 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button id="btn-login" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button id="btn-login-action" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -87,22 +86,22 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (KLIKABLE UNTUK FILTER STATUS) -->
+            <!-- DASHBOARD PROGRESS (Bisa diklik untuk filter) -->
             <div class="dashboard-stats">
-                <div class="stat-card box-total clickable-stat" onclick="filterByStatus('All')" title="Klik untuk tampilkan semua">
+                <div class="stat-card box-total" onclick="filterByCard('all')" title="Klik untuk tampilkan semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
-                <div class="stat-card box-belum clickable-stat" onclick="filterByStatus('Belum di setup')" title="Klik filter: Belum di setup">
+                <div class="stat-card box-belum" onclick="filterByCard('Belum di setup')" title="Klik untuk filter: Belum di setup">
                     <h3>Belum di setup</h3><h2 id="stat-belum">0</h2>
                 </div>
-                <div class="stat-card box-progress clickable-stat" onclick="filterByStatus('On progress')" title="Klik filter: On progress">
+                <div class="stat-card box-progress" onclick="filterByCard('On progress')" title="Klik untuk filter: On progress">
                     <h3>On Progress</h3><h2 id="stat-progress">0</h2>
                 </div>
-                <div class="stat-card box-setup clickable-stat" onclick="filterByStatus('Done setup')" title="Klik filter: Done setup">
-                    <h3>Done Setup</h3><h2 id="stat-setup">0</h2>
+                <div class="stat-card box-setup" onclick="filterByCard('Done setup')" title="Klik untuk filter: Done setup">
+                    <h3>Done Setup</h3><h2 id="stat-donesetup">0</h2>
                 </div>
-                <div class="stat-card box-deploy clickable-stat" onclick="filterByStatus('Done deploy user')" title="Klik filter: Done deploy user">
-                    <h3>Done Deploy User</h3><h2 id="stat-deploy">0</h2>
+                <div class="stat-card box-deploy" onclick="filterByCard('Done deploy user')" title="Klik untuk filter: Done deploy user">
+                    <h3>Done Deploy User</h3><h2 id="stat-donedeploy">0</h2>
                 </div>
             </div>
 
@@ -110,10 +109,16 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 220px;">
-                        <input type="date" id="filter-date" class="input-form" title="Filter Berdasarkan Tanggal Deploy" style="margin: 0; width: 160px;" onchange="searchDevice()">
-                        <button class="btn btn-primary" onclick="searchDevice()">Cari / Filter</button>
-                        <button class="btn btn-secondary" onclick="resetFilter()" title="Reset Filter">Reset</button>
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 200px;" onkeyup="applyFilters()">
+                        <select id="filter-status" class="input-form" style="margin: 0; width: 160px;" onchange="applyFilters()">
+                            <option value="">Semua Status</option>
+                            <option value="Belum di setup">Belum di setup</option>
+                            <option value="On progress">On progress</option>
+                            <option value="Done setup">Done setup</option>
+                            <option value="Done deploy user">Done deploy user</option>
+                        </select>
+                        <input type="date" id="filter-date" class="input-form" style="margin: 0; width: 150px;" onchange="applyFilters()" title="Filter Berdasarkan Tgl Deploy">
+                        <button class="btn btn-secondary" onclick="resetFilters()" title="Reset Filter">Reset</button>
                     </div>
                     <div class="action-box">
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
@@ -131,9 +136,9 @@
                                 <th>Serial Number</th>
                                 <th>Email</th>
                                 <th>Alamat Lengkap</th>
-                                <th>Tgl Deploy</th>
+                                <th>Tgl Deploy (DD/MM/YYYY)</th>
                                 <th>Status Deploy</th>
-                                <th style="width: 140px;">Aksi</th>
+                                <th style="width: 180px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="table-device"></tbody>
@@ -183,7 +188,7 @@
             <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Pilih Hari, Tanggal, Tahun)</label>
+            <label>Tanggal Deploy (Kalender: Hari, Tanggal, Tahun)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
@@ -197,6 +202,19 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('modal-device')">Batal</button>
                 <button class="btn btn-primary" onclick="saveDevice()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal History -->
+    <div id="modal-history" class="modal hidden">
+        <div class="modal-box" style="width: 400px;">
+            <h2 class="text-primary mb-20">Riwayat History Device</h2>
+            <div id="history-content" style="font-size: 13px; line-height: 1.8; color: var(--text-main);">
+                <!-- Diisi dinamis -->
+            </div>
+            <div class="modal-footer" style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeModal('modal-history')">Tutup</button>
             </div>
         </div>
     </div>
