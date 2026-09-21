@@ -12,8 +12,9 @@ try {
 }
 
 let currentUser = null;
+let currentStatusFilter = 'All'; // Filter default
 
-// Cek Sesi Persisten saat Browser Dimuat / Di-refresh
+// Persisten Sesi Login (Refresh browser tetap login kecuali logout)
 window.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('autopilot_current_user');
     if (savedUser) {
@@ -22,7 +23,6 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('app-section').classList.remove('hidden');
         initApp();
     }
-
     setupEnterListeners();
 });
 
@@ -32,14 +32,12 @@ function setupEnterListeners() {
     const mCode = document.getElementById('mfa-code');
     const rUser = document.getElementById('reset-user');
     const rPass = document.getElementById('reset-pass');
-    const sInput = document.getElementById('search-input');
 
     if(lUser) lUser.addEventListener('keypress', e => { if(e.key === 'Enter') lPass.focus(); });
     if(lPass) lPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleLogin(); });
     if(mCode) mCode.addEventListener('keypress', e => { if(e.key === 'Enter') handle2FA(); });
     if(rUser) rUser.addEventListener('keypress', e => { if(e.key === 'Enter') rPass.focus(); });
     if(rPass) rPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
-    if(sInput) sInput.addEventListener('keypress', e => { if(e.key === 'Enter') searchDevice(); });
 }
 
 // ==========================================
@@ -68,7 +66,7 @@ async function handleLogin() {
     }
 
     if (!supabaseClient || SUPABASE_URL.includes('ISI_DENGAN')) {
-        alert("Konfigurasi Supabase URL dan Anon Key belum diisi di file script.js!");
+        alert("Konfigurasi URL & Anon Key Supabase belum diisi dengan benar di script.js!");
         return;
     }
 
@@ -130,7 +128,7 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan sesi login agar browser di-refresh tetap masuk
+        // Simpan sesi login persisten
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -202,30 +200,35 @@ async function updateDashboardStats() {
     document.getElementById('stat-total').innerText = devices.length;
     document.getElementById('stat-belum').innerText = devices.filter(d => d.status === 'Belum di setup').length;
     document.getElementById('stat-progress').innerText = devices.filter(d => d.status === 'On progress').length;
-    document.getElementById('stat-setup').innerText = devices.filter(d => d.status === 'Done setup').length;
-    document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
+    document.getElementById('stat-donesetup').innerText = devices.filter(d => d.status === 'Done setup').length;
+    document.getElementById('stat-donedeploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
-// Fungsi ketika kartu statistik diklik untuk filter tabel
-function filterByStatCard(status) {
-    document.getElementById('filter-status').value = status;
+// Sinkronisasi filter saat kartu statistik diklik
+function filterByStatus(status) {
+    currentStatusFilter = status;
+    document.getElementById('filter-status-dropdown').value = status;
     renderDevices();
 }
 
-// Format Tanggal: Hari, Bulan, Tahun (Contoh: Senin, 21 September 2026)
+// Sinkronisasi saat dropdown status diubah
+function onStatusDropdownChange() {
+    currentStatusFilter = document.getElementById('filter-status-dropdown').value;
+    renderDevices();
+}
+
+// Format Tanggal Indonesia (Hari, Bulan, Tahun)
 function formatTanggalIndo(dateString) {
     if (!dateString) return '-';
     const parts = dateString.split('-');
     if (parts.length !== 3) return dateString;
     const [year, month, day] = parts;
-    const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    if (isNaN(dateObj.getTime())) return dateString;
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    return dateObj.toLocaleDateString('id-ID', options);
+    const months = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    return `${parseInt(day)} ${months[parseInt(month)]} ${year}`;
 }
 
 // ==========================================
-// 3. CRUD DEVICES & HISTORY
+// 3. CRUD DEVICES & PENCARIAN LENGKAP
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -244,30 +247,30 @@ async function renderDevices() {
 
     let list = devices || [];
 
-    // Filter berdasarkan Dropdown Status Deploy
-    const selectedStatus = document.getElementById('filter-status').value;
-    if (selectedStatus !== 'All') {
-        list = list.filter(d => d.status === selectedStatus);
+    // Filter Status (dari kartu statistik atau dropdown)
+    if (currentStatusFilter !== 'All') {
+        list = list.filter(d => d.status === currentStatusFilter);
     }
 
-    // Filter berdasarkan Input Pencarian Teks
+    // Pencarian berdasarkan Nama User, Serial Number, dan Alamat Lengkap
     const searchVal = document.getElementById('search-input').value.toLowerCase();
     if (searchVal) {
         list = list.filter(d => 
             (d.nama && d.nama.toLowerCase().includes(searchVal)) || 
-            (d.sn && d.sn.toLowerCase().includes(searchVal))
+            (d.sn && d.sn.toLowerCase().includes(searchVal)) ||
+            (d.alamat && d.alamat.toLowerCase().includes(searchVal))
         );
     }
 
-    // Sort berdasarkan Dropdown Tgl Deploy (Terlama / Terbaru)
-    const sortVal = document.getElementById('sort-tgl').value;
+    // Sortir berdasarkan Tanggal Deploy (Awal / Terlama vs Terbaru)
+    const sortVal = document.getElementById('sort-select').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
         const dateB = b.tanggal || '';
         if (sortVal === 'oldest') {
-            return dateA.localeCompare(dateB); // Terlama di atas
+            return dateA.localeCompare(dateB); // Dari awal / terlama
         } else {
-            return dateB.localeCompare(dateA); // Terbaru di atas
+            return dateB.localeCompare(dateA); // Terbaru
         }
     });
 
@@ -282,8 +285,8 @@ async function renderDevices() {
                 <td>${getStatusBadge(d.status)}</td>
                 <td><div class="history-text">${d.history || 'Dibuat: -'}</div></td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
-                    <button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
+                    <button type="button" class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
+                    <button type="button" class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
                 </td>
             </tr>
         `;
@@ -311,7 +314,9 @@ async function saveDevice() {
         let historyLog = oldData?.history || '';
         
         if (oldData?.status !== status) {
-            historyLog += `<br>• Status diubah ke <strong>${status}</strong> (${nowStr})`;
+            historyLog += `<br>• Status diubah ke <strong>${status}</strong> pada ${nowStr}`;
+        } else {
+            historyLog += `<br>• Data diperbarui pada ${nowStr}`;
         }
 
         await supabaseClient.from('devices').update({
@@ -370,8 +375,8 @@ async function renderUsers() {
                 <td>${status2FA}</td>
                 <td>••••••••</td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
-                    ${users.length > 1 ? `<button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteUser(${u.id})">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
+                    <button type="button" class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
+                    ${users.length > 1 ? `<button type="button" class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteUser(${u.id})">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
                 </td>
             </tr>
         `;
