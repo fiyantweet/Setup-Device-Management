@@ -12,7 +12,6 @@ try {
 }
 
 let currentUser = null;
-let currentStatusFilter = 'All'; // Filter dari klik kartu statistik
 
 // Cek Sesi Persisten saat Browser Dimuat / Di-refresh
 window.addEventListener('DOMContentLoaded', () => {
@@ -24,7 +23,6 @@ window.addEventListener('DOMContentLoaded', () => {
         initApp();
     }
 
-    // Shortcut Enter Listener
     setupEnterListeners();
 });
 
@@ -113,7 +111,7 @@ function prepareAuthenticator(account) {
         instruction.innerText = "SETUP PERTAMA: Buka Authenticator dan Scan Barcode ini.";
         const appName = "AutoPilot_Cloud";
         const otpUrl = `otpauth://totp/${appName}:${account.username}?secret=JBSWY3DPEHPK3PXP&issuer=${appName}`;
-        new QRCode(qrDiv, { text: otpUrl, width: 140, height: 140, colorDark: "#000", colorLight: "#fff" });
+        new QRCode(qrDiv, { text: otpUrl, width: 140, height: 140, colorDark: "#000", colorLight: "#ffffff" });
     } else {
         qrContainer.classList.add('hidden');
         instruction.innerText = "Masukkan 6 digit kode dari aplikasi Authenticator Anda.";
@@ -132,7 +130,7 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan sesi ke localStorage agar browser di-refresh tetap masuk aplikasi
+        // Simpan sesi login ke localStorage agar persisten saat refresh
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -208,20 +206,21 @@ async function updateDashboardStats() {
     document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
-// Fungsi filter saat kartu statistik diklik
-function filterByStatus(status) {
-    currentStatusFilter = status;
+// Filter saat kartu statistik diklik
+function filterByStatCard(status) {
+    document.getElementById('filter-status').value = status;
     renderDevices();
 }
 
-// Format Tanggal Indonesia (Hari, Bulan, Tahun)
+// Format Tanggal: Hari, Bulan, Tahun (Contoh: Senin, 21 September 2026)
 function formatTanggalIndo(dateString) {
     if (!dateString) return '-';
     const parts = dateString.split('-');
     if (parts.length !== 3) return dateString;
     const [year, month, day] = parts;
-    const months = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    return `${parseInt(day)} ${months[parseInt(month)]} ${year}`;
+    const dateObj = new Date(year, month - 1, day);
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    return dateObj.toLocaleDateString('id-ID', options);
 }
 
 // ==========================================
@@ -235,7 +234,7 @@ function getStatusBadge(status) {
     return status;
 }
 
-async function renderDevices(filterText = '') {
+async function renderDevices() {
     const { data: devices, error } = await supabaseClient.from('devices').select('*');
     if (error) { console.error(error); return; }
 
@@ -244,12 +243,13 @@ async function renderDevices(filterText = '') {
 
     let list = devices || [];
 
-    // Filter berdasarkan klik kartu statistik
-    if (currentStatusFilter !== 'All') {
-        list = list.filter(d => d.status === currentStatusFilter);
+    // Filter berdasarkan Dropdown Status Deploy
+    const selectedStatus = document.getElementById('filter-status').value;
+    if (selectedStatus !== 'All') {
+        list = list.filter(d => d.status === selectedStatus);
     }
 
-    // Filter pencarian teks
+    // Filter berdasarkan Pencarian Teks
     const searchVal = document.getElementById('search-input').value.toLowerCase();
     if (searchVal) {
         list = list.filter(d => 
@@ -258,13 +258,13 @@ async function renderDevices(filterText = '') {
         );
     }
 
-    // Sortir berdasarkan Tanggal Deploy (Awal / Terbaru)
-    const sortVal = document.getElementById('sort-select').value;
+    // Sort berdasarkan Dropdown Tgl Deploy (Terlama / Terbaru)
+    const sortVal = document.getElementById('sort-tgl').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
         const dateB = b.tanggal || '';
         if (sortVal === 'oldest') {
-            return dateA.localeCompare(dateB); // Dari awal / terlama
+            return dateA.localeCompare(dateB); // Awal / Terlama
         } else {
             return dateB.localeCompare(dateA); // Terbaru
         }
@@ -306,19 +306,17 @@ async function saveDevice() {
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (id) {
-        // Ambil data lama untuk cek perubahan status & history
         const { data: oldData } = await supabaseClient.from('devices').select('history, status').eq('id', id).single();
         let historyLog = oldData?.history || '';
         
         if (oldData?.status !== status) {
-            historyLog += `<br>• Diubah status ke <strong>${status}</strong> pada ${nowStr}`;
+            historyLog += `<br>• Status diubah ke <strong>${status}</strong> (${nowStr})`;
         }
 
         await supabaseClient.from('devices').update({
             nama, sn, email, alamat, tanggal, status, history: historyLog
         }).eq('id', id);
     } else {
-        // Data Baru
         const newHistory = `Dibuat pada ${nowStr}`;
         await supabaseClient.from('devices').insert([{
             nama, sn, email, alamat, tanggal, status, history: newHistory

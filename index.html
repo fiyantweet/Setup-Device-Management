@@ -31,7 +31,7 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button id="btn-login-action" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -87,21 +87,21 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (Bisa Diklik untuk Filter) -->
+            <!-- DASHBOARD PROGRESS (Dapat Diklik untuk Filter) -->
             <div class="dashboard-stats">
-                <div class="stat-card box-total" onclick="filterByStatus('All')" style="cursor:pointer;" title="Klik tampilkan semua">
+                <div class="stat-card box-total" onclick="filterByStatCard('All')" style="cursor:pointer;" title="Klik tampilkan semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
-                <div class="stat-card box-belum" onclick="filterByStatus('Belum di setup')" style="cursor:pointer;" title="Klik filter Belum di setup">
+                <div class="stat-card box-belum" onclick="filterByStatCard('Belum di setup')" style="cursor:pointer;" title="Klik filter Belum di setup">
                     <h3>Belum di setup</h3><h2 id="stat-belum">0</h2>
                 </div>
-                <div class="stat-card box-progress" onclick="filterByStatus('On progress')" style="cursor:pointer;" title="Klik filter On Progress">
+                <div class="stat-card box-progress" onclick="filterByStatCard('On progress')" style="cursor:pointer;" title="Klik filter On Progress">
                     <h3>On Progress</h3><h2 id="stat-progress">0</h2>
                 </div>
-                <div class="stat-card box-setup" onclick="filterByStatus('Done setup')" style="cursor:pointer;" title="Klik filter Done Setup">
+                <div class="stat-card box-setup" onclick="filterByStatCard('Done setup')" style="cursor:pointer;" title="Klik filter Done Setup">
                     <h3>Done Setup</h3><h2 id="stat-setup">0</h2>
                 </div>
-                <div class="stat-card box-deploy" onclick="filterByStatus('Done deploy user')" style="cursor:pointer;" title="Klik filter Done Deploy">
+                <div class="stat-card box-deploy" onclick="filterByStatCard('Done deploy user')" style="cursor:pointer;" title="Klik filter Done Deploy">
                     <h3>Done Deploy User</h3><h2 id="stat-deploy">0</h2>
                 </div>
             </div>
@@ -110,11 +110,23 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / Serial Number..." style="margin: 0; width: 220px;">
-                        <select id="sort-select" class="input-form" style="margin: 0; width: 180px;" onchange="renderDevices()">
-                            <option value="oldest">Tgl Deploy: Awal (Terlama)</option>
-                            <option value="newest">Tgl Deploy: Terbaru</option>
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 170px;">
+                        
+                        <!-- Dropdown Filter Status Deploy -->
+                        <select id="filter-status" class="input-form" style="margin: 0; width: 155px;" onchange="renderDevices()">
+                            <option value="All">Semua Status</option>
+                            <option value="Belum di setup">Belum di setup</option>
+                            <option value="On progress">On progress</option>
+                            <option value="Done setup">Done setup</option>
+                            <option value="Done deploy user">Done deploy user</option>
                         </select>
+
+                        <!-- Dropdown Sort Tgl Deploy -->
+                        <select id="sort-tgl" class="input-form" style="margin: 0; width: 165px;" onchange="renderDevices()">
+                            <option value="oldest">Tgl: Awal (Terlama)</option>
+                            <option value="newest">Tgl: Terbaru</option>
+                        </select>
+
                         <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
                     </div>
                     <div class="action-box">
@@ -133,7 +145,7 @@
                                 <th>Serial Number</th>
                                 <th>Email</th>
                                 <th>Alamat Lengkap</th>
-                                <th>Tgl Deploy</th>
+                                <th>Tgl Deploy (Hari, Bulan, Tahun)</th>
                                 <th>Status Deploy</th>
                                 <th>History / Riwayat Status</th>
                                 <th style="width: 120px;">Aksi</th>
@@ -186,7 +198,7 @@
             <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Hari, Bulan, Tahun)</label>
+            <label>Tanggal Deploy (Klik Kalender: Hari, Bulan, Tahun)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
