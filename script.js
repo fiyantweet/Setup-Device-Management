@@ -1,3 +1,4 @@
+name=script.js
 // ==========================================
 // KONEKSI SUPABASE CLOUD
 // ==========================================
@@ -132,7 +133,6 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan sesi ke localStorage agar browser di-refresh tetap masuk aplikasi
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -165,7 +165,7 @@ async function handleReset() {
 
 function logout() {
     currentUser = null;
-    localStorage.removeItem('autopilot_current_user'); // Hapus sesi
+    localStorage.removeItem('autopilot_current_user');
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
     document.querySelectorAll('.input-form').forEach(el => el.value = '');
@@ -208,13 +208,11 @@ async function updateDashboardStats() {
     document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
-// Fungsi filter saat kartu statistik diklik
 function filterByStatus(status) {
     currentStatusFilter = status;
     renderDevices();
 }
 
-// Format Tanggal Indonesia (Hari, Bulan, Tahun)
 function formatTanggalIndo(dateString) {
     if (!dateString) return '-';
     const parts = dateString.split('-');
@@ -225,7 +223,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES & HISTORY
+// 3. CRUD DEVICES, HISTORY & SELECT FILTERS
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -235,21 +233,105 @@ function getStatusBadge(status) {
     return status;
 }
 
-async function renderDevices(filterText = '') {
+function populateFilterDropdowns(devices) {
+    const namaSelect = document.getElementById('select-nama');
+    const snSelect = document.getElementById('select-sn');
+    const emailSelect = document.getElementById('select-email');
+    const alamatSelect = document.getElementById('select-alamat');
+    const tglSelect = document.getElementById('select-tanggal');
+    const statusSelect = document.getElementById('select-status');
+    const historySelect = document.getElementById('select-history');
+
+    if (!namaSelect) return;
+
+    const curNama = namaSelect.value;
+    const curSn = snSelect.value;
+    const curEmail = emailSelect.value;
+    const curAlamat = alamatSelect.value;
+    const curTgl = tglSelect.value;
+    const curStatus = statusSelect.value;
+    const curHistory = historySelect.value;
+
+    const uniqueNamas = [...new Set(devices.map(d => d.nama).filter(Boolean))].sort();
+    const uniqueSns = [...new Set(devices.map(d => d.sn).filter(Boolean))].sort();
+    const uniqueEmails = [...new Set(devices.map(d => d.email).filter(Boolean))].sort();
+    const uniqueAlamats = [...new Set(devices.map(d => d.alamat).filter(Boolean))].sort();
+    const uniqueTgls = [...new Set(devices.map(d => d.tanggal).filter(Boolean))].sort();
+    const uniqueStatuses = [...new Set(devices.map(d => d.status).filter(Boolean))].sort();
+    const uniqueHistories = [...new Set(devices.map(d => d.history).filter(Boolean))].sort();
+
+    namaSelect.innerHTML = '<option value="">Semua Nama</option>';
+    uniqueNamas.forEach(n => {
+        namaSelect.innerHTML += `<option value="${n}" ${n === curNama ? 'selected' : ''}>${n}</option>`;
+    });
+
+    snSelect.innerHTML = '<option value="">Semua SN</option>';
+    uniqueSns.forEach(s => {
+        snSelect.innerHTML += `<option value="${s}" ${s === curSn ? 'selected' : ''}>${s}</option>`;
+    });
+
+    emailSelect.innerHTML = '<option value="">Semua Email</option>';
+    uniqueEmails.forEach(e => {
+        emailSelect.innerHTML += `<option value="${e}" ${e === curEmail ? 'selected' : ''}>${e}</option>`;
+    });
+
+    alamatSelect.innerHTML = '<option value="">Semua Alamat</option>';
+    uniqueAlamats.forEach(a => {
+        alamatSelect.innerHTML += `<option value="${a}" ${a === curAlamat ? 'selected' : ''}>${a}</option>`;
+    });
+
+    tglSelect.innerHTML = '<option value="">Semua Tanggal</option>';
+    uniqueTgls.forEach(t => {
+        tglSelect.innerHTML += `<option value="${t}" ${t === curTgl ? 'selected' : ''}>${formatTanggalIndo(t)}</option>`;
+    });
+
+    statusSelect.innerHTML = '<option value="">Semua Status</option>';
+    uniqueStatuses.forEach(st => {
+        statusSelect.innerHTML += `<option value="${st}" ${st === curStatus ? 'selected' : ''}>${st}</option>`;
+    });
+
+    historySelect.innerHTML = '<option value="">Semua History</option>';
+    uniqueHistories.forEach(h => {
+        const shortH = h.length > 50 ? h.substring(0, 50) + '...' : h;
+        historySelect.innerHTML += `<option value="${h}" ${h === curHistory ? 'selected' : ''}>${shortH}</option>`;
+    });
+}
+
+function resetAllFilters() {
+    document.getElementById('search-input').value = '';
+    const sNama = document.getElementById('select-nama');
+    const sSn = document.getElementById('select-sn');
+    const sEmail = document.getElementById('select-email');
+    const sAlamat = document.getElementById('select-alamat');
+    const sTgl = document.getElementById('select-tanggal');
+    const sStatus = document.getElementById('select-status');
+    const sHistory = document.getElementById('select-history');
+
+    if(sNama) sNama.value = '';
+    if(sSn) sSn.value = '';
+    if(sEmail) sEmail.value = '';
+    if(sAlamat) sAlamat.value = '';
+    if(sTgl) sTgl.value = '';
+    if(sStatus) sStatus.value = '';
+    if(sHistory) sHistory.value = '';
+
+    currentStatusFilter = 'All';
+    renderDevices();
+}
+
+async function renderDevices() {
     const { data: devices, error } = await supabaseClient.from('devices').select('*');
     if (error) { console.error(error); return; }
 
-    const tbody = document.getElementById('table-device');
-    tbody.innerHTML = '';
+    const allDevices = devices || [];
+    populateFilterDropdowns(allDevices);
 
-    let list = devices || [];
+    let list = [...allDevices];
 
-    // Filter berdasarkan klik kartu statistik
     if (currentStatusFilter !== 'All') {
         list = list.filter(d => d.status === currentStatusFilter);
     }
 
-    // Filter pencarian teks
     const searchVal = document.getElementById('search-input').value.toLowerCase();
     if (searchVal) {
         list = list.filter(d => 
@@ -258,17 +340,36 @@ async function renderDevices(filterText = '') {
         );
     }
 
-    // Sortir berdasarkan Tanggal Deploy (Awal / Terbaru)
+    // Filter berdasarkan select option kolom
+    const fNama = document.getElementById('select-nama')?.value;
+    const fSn = document.getElementById('select-sn')?.value;
+    const fEmail = document.getElementById('select-email')?.value;
+    const fAlamat = document.getElementById('select-alamat')?.value;
+    const fTgl = document.getElementById('select-tanggal')?.value;
+    const fStatus = document.getElementById('select-status')?.value;
+    const fHistory = document.getElementById('select-history')?.value;
+
+    if (fNama) list = list.filter(d => d.nama === fNama);
+    if (fSn) list = list.filter(d => d.sn === fSn);
+    if (fEmail) list = list.filter(d => d.email === fEmail);
+    if (fAlamat) list = list.filter(d => d.alamat === fAlamat);
+    if (fTgl) list = list.filter(d => d.tanggal === fTgl);
+    if (fStatus) list = list.filter(d => d.status === fStatus);
+    if (fHistory) list = list.filter(d => d.history === fHistory);
+
     const sortVal = document.getElementById('sort-select').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
         const dateB = b.tanggal || '';
         if (sortVal === 'oldest') {
-            return dateA.localeCompare(dateB); // Dari awal / terlama
+            return dateA.localeCompare(dateB);
         } else {
-            return dateB.localeCompare(dateA); // Terbaru
+            return dateB.localeCompare(dateA);
         }
     });
+
+    const tbody = document.getElementById('table-device');
+    tbody.innerHTML = '';
 
     list.forEach(d => {
         tbody.innerHTML += `
@@ -306,7 +407,6 @@ async function saveDevice() {
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (id) {
-        // Ambil data lama untuk cek perubahan status & history
         const { data: oldData } = await supabaseClient.from('devices').select('history, status').eq('id', id).single();
         let historyLog = oldData?.history || '';
         
@@ -318,7 +418,6 @@ async function saveDevice() {
             nama, sn, email, alamat, tanggal, status, history: historyLog
         }).eq('id', id);
     } else {
-        // Data Baru
         const newHistory = `Dibuat pada ${nowStr}`;
         await supabaseClient.from('devices').insert([{
             nama, sn, email, alamat, tanggal, status, history: newHistory
@@ -430,7 +529,7 @@ function openModal(modalId) {
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
         document.getElementById('dev-alamat').value = '';
-        document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0]; // Default hari ini
+        document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0];
         document.getElementById('dev-status').value = 'Belum di setup';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';

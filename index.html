@@ -1,3 +1,4 @@
+name=index.html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -122,6 +123,58 @@
                         <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
                         <label for="import-file" class="btn btn-import" style="cursor: pointer;">Import Excel</label>
                         <input type="file" id="import-file" accept=".xlsx, .xls" hidden onchange="importExcel(event)">
+                    </div>
+                </div>
+
+                <!-- FILTER SELECT BAR BERDASARKAN LABEL KOLOM -->
+                <div class="card mb-20 filter-container" style="padding: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 11px; font-weight: bold; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px;">Filter Kolom (Select Feature)</span>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="resetAllFilters()">Reset Filter</button>
+                    </div>
+                    <div class="filter-grid">
+                        <div>
+                            <label>Nama User</label>
+                            <select id="select-nama" class="input-form" style="margin:0; font-size: 12px; padding: 8px;" onchange="renderDevices()">
+                                <option value="">Semua Nama</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Serial Number</label>
+                            <select id="select-sn" class="input-form" style="margin:0; font-size: 12px; padding: 8px;" onchange="renderDevices()">
+                                <option value="">Semua SN</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Email</label>
+                            <select id="select-email" class="input-form" style="margin:0; font-size: 12px; padding: 8px;" onchange="renderDevices()">
+                                <option value="">Semua Email</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Alamat Lengkap</label>
+                            <select id="select-alamat" class="input-form" style="margin:0; font-size: 12px; padding: 8px;" onchange="renderDevices()">
+                                <option value="">Semua Alamat</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Tgl Deploy</label>
+                            <select id="select-tanggal" class="input-form" style="margin:0; font-size: 12px; padding: 8px;" onchange="renderDevices()">
+                                <option value="">Semua Tanggal</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Status Deploy</label>
+                            <select id="select-status" class="input-form" style="margin:0; font-size: 12px; padding: 8px;" onchange="renderDevices()">
+                                <option value="">Semua Status</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>History Status</label>
+                            <select id="select-history" class="input-form" style="margin:0; font-size: 12px; padding: 8px;" onchange="renderDevices()">
+                                <option value="">Semua History</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
