@@ -1,4 +1,3 @@
-name=style.css
 :root {
     --bg-main: #050505;
     --bg-card: #121212;
@@ -48,14 +47,6 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .btn-import { background-color: var(--btn-import); color: #000; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); text-transform: uppercase; }
 .btn-import:hover { background-color: #e6c200; }
 .card { background-color: var(--bg-card); padding: 40px; border-radius: 10px; width: 400px; border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
-.filter-container { width: 100% !important; }
-.filter-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
-@media(max-width: 1200px) {
-    .filter-grid { grid-template-columns: repeat(4, 1fr); }
-}
-@media(max-width: 768px) {
-    .filter-grid { grid-template-columns: repeat(2, 1fr); }
-}
 .navbar { display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-card); padding: 15px 30px; border-bottom: 1px solid var(--border); }
 .logo { font-size: 20px; font-weight: 800; letter-spacing: 1px; display: flex; align-items: center; gap: 10px;}
 .logo span { color: var(--primary); }
