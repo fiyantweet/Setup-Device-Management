@@ -130,7 +130,7 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan sesi login ke localStorage agar persisten saat refresh
+        // Simpan sesi login ke localStorage agar tetap aktif saat refresh
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -259,14 +259,12 @@ async function renderDevices() {
     }
 
     // 3. Filter berdasarkan Dropdown Select History Status
-    const filterHistory = document.getElementById('filter-history').value;
-    if (filterHistory === 'Dibuat') {
-        list = list.filter(d => d.history && d.history.includes('Dibuat'));
-    } else if (filterHistory === 'Diubah') {
-        list = list.filter(d => d.history && d.history.includes('Diubah'));
+    const filterHistoryVal = document.getElementById('filter-history').value;
+    if (filterHistoryVal !== 'All') {
+        list = list.filter(d => d.history && d.history.includes(filterHistoryVal));
     }
 
-    // 4. Sortir berdasarkan Dropdown Select Tgl Deploy (Terlama / Terbaru)
+    // 4. Sortir berdasarkan Dropdown Tgl Deploy (Terlama / Terbaru)
     const sortVal = document.getElementById('sort-tgl').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
@@ -318,9 +316,7 @@ async function saveDevice() {
         let historyLog = oldData?.history || '';
         
         if (oldData?.status !== status) {
-            historyLog += `<br>• Status diubah ke <strong>${status}</strong> (${nowStr})`;
-        } else {
-            historyLog += `<br>• Data diperbarui (${nowStr})`;
+            historyLog += `<br>• Status Diubah ke <strong>${status}</strong> (${nowStr})`;
         }
 
         await supabaseClient.from('devices').update({
