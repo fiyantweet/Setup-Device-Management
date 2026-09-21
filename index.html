@@ -31,7 +31,7 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button id="btn-login-action" type="button" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -49,7 +49,7 @@
             </div>
 
             <input type="text" id="mfa-code" class="input-form text-center" placeholder="X X X X X X" maxlength="6" autocomplete="off">
-            <button type="button" class="btn btn-primary w-100 mt-10" onclick="handle2FA()">VERIFIKASI & MASUK</button>
+            <button class="btn btn-primary w-100 mt-10" onclick="handle2FA()">VERIFIKASI & MASUK</button>
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('login')">Batal & Kembali</a>
             </div>
@@ -66,7 +66,7 @@
             <label>Password Baru</label>
             <input type="password" id="reset-pass" class="input-form" placeholder="Ketik Password Baru">
             
-            <button type="button" class="btn btn-warning w-100 text-black mt-10" onclick="handleReset()">SIMPAN PASSWORD</button>
+            <button class="btn btn-warning w-100 text-black mt-10" onclick="handleReset()">SIMPAN PASSWORD</button>
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('login')">Kembali ke Login</a>
             </div>
@@ -87,7 +87,7 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (Klik untuk Filter) -->
+            <!-- DASHBOARD PROGRESS (Klik untuk Filter Status) -->
             <div class="dashboard-stats">
                 <div class="stat-card box-total" onclick="filterByStatCard('All')" style="cursor:pointer;" title="Klik tampilkan semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
@@ -110,10 +110,10 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 160px;">
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 170px;">
                         
-                        <!-- Dropdown Filter Status Deploy -->
-                        <select id="filter-status" class="input-form" style="margin: 0; width: 140px;" onchange="renderDevices()">
+                        <!-- Dropdown Filter Status -->
+                        <select id="filter-status" class="input-form" style="margin: 0; width: 155px;" onchange="renderDevices()">
                             <option value="All">Semua Status</option>
                             <option value="Belum di setup">Belum di setup</option>
                             <option value="On progress">On progress</option>
@@ -121,17 +121,10 @@
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
 
-                        <!-- Dropdown Select Tgl Deploy (Sorting/Filter Tanggal) -->
-                        <select id="sort-tgl" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
+                        <!-- Dropdown Sort Tanggal -->
+                        <select id="sort-tgl" class="input-form" style="margin: 0; width: 155px;" onchange="renderDevices()">
                             <option value="oldest">Tgl: Awal (Terlama)</option>
                             <option value="newest">Tgl: Terbaru</option>
-                        </select>
-
-                        <!-- Dropdown Select History Status -->
-                        <select id="filter-history" class="input-form" style="margin: 0; width: 140px;" onchange="renderDevices()">
-                            <option value="All">Semua History</option>
-                            <option value="Dibuat">History: Dibuat</option>
-                            <option value="Diubah">History: Diubah</option>
                         </select>
 
                         <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
@@ -154,7 +147,7 @@
                                 <th>Alamat Lengkap</th>
                                 <th>Tgl Deploy (Hari, Bulan, Tahun)</th>
                                 <th>Status Deploy</th>
-                                <th>History Status</th>
+                                <th>History / Riwayat Status</th>
                                 <th style="width: 120px;">Aksi</th>
                             </tr>
                         </thead>
@@ -205,8 +198,8 @@
             <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Pilih Kalender Hari, Bulan, Tahun)</label>
-            <input type="date" id="dev-tgl" class="input-form calendar-input">
+            <label>Tanggal Deploy (Pilih Kalender)</label>
+            <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
             <select id="dev-status" class="input-form">
@@ -217,8 +210,8 @@
             </select>
             
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-device')">Batal</button>
-                <button type="button" class="btn btn-primary" onclick="saveDevice()">Simpan Data</button>
+                <button class="btn btn-secondary" onclick="closeModal('modal-device')">Batal</button>
+                <button class="btn btn-primary" onclick="saveDevice()">Simpan Data</button>
             </div>
         </div>
     </div>
@@ -241,8 +234,8 @@
             </select>
             
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user')">Batal</button>
-                <button type="button" class="btn btn-primary" onclick="saveUser()">Simpan Akun</button>
+                <button class="btn btn-secondary" onclick="closeModal('modal-user')">Batal</button>
+                <button class="btn btn-primary" onclick="saveUser()">Simpan Akun</button>
             </div>
         </div>
     </div>

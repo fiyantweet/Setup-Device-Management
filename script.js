@@ -130,7 +130,7 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan sesi login ke localStorage agar tetap aktif saat refresh
+        // Simpan sesi login agar browser di-refresh tetap masuk
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -206,7 +206,7 @@ async function updateDashboardStats() {
     document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
-// Filter saat kartu statistik diklik
+// Fungsi ketika kartu statistik diklik untuk filter tabel
 function filterByStatCard(status) {
     document.getElementById('filter-status').value = status;
     renderDevices();
@@ -218,7 +218,8 @@ function formatTanggalIndo(dateString) {
     const parts = dateString.split('-');
     if (parts.length !== 3) return dateString;
     const [year, month, day] = parts;
-    const dateObj = new Date(year, month - 1, day);
+    const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    if (isNaN(dateObj.getTime())) return dateString;
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     return dateObj.toLocaleDateString('id-ID', options);
 }
@@ -243,13 +244,13 @@ async function renderDevices() {
 
     let list = devices || [];
 
-    // 1. Filter berdasarkan Dropdown Status Deploy
+    // Filter berdasarkan Dropdown Status Deploy
     const selectedStatus = document.getElementById('filter-status').value;
     if (selectedStatus !== 'All') {
         list = list.filter(d => d.status === selectedStatus);
     }
 
-    // 2. Filter berdasarkan Pencarian Teks
+    // Filter berdasarkan Input Pencarian Teks
     const searchVal = document.getElementById('search-input').value.toLowerCase();
     if (searchVal) {
         list = list.filter(d => 
@@ -258,21 +259,15 @@ async function renderDevices() {
         );
     }
 
-    // 3. Filter berdasarkan Dropdown Select History Status
-    const filterHistoryVal = document.getElementById('filter-history').value;
-    if (filterHistoryVal !== 'All') {
-        list = list.filter(d => d.history && d.history.includes(filterHistoryVal));
-    }
-
-    // 4. Sortir berdasarkan Dropdown Tgl Deploy (Terlama / Terbaru)
+    // Sort berdasarkan Dropdown Tgl Deploy (Terlama / Terbaru)
     const sortVal = document.getElementById('sort-tgl').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
         const dateB = b.tanggal || '';
         if (sortVal === 'oldest') {
-            return dateA.localeCompare(dateB); // Awal / Terlama
+            return dateA.localeCompare(dateB); // Terlama di atas
         } else {
-            return dateB.localeCompare(dateA); // Terbaru
+            return dateB.localeCompare(dateA); // Terbaru di atas
         }
     });
 
@@ -316,7 +311,7 @@ async function saveDevice() {
         let historyLog = oldData?.history || '';
         
         if (oldData?.status !== status) {
-            historyLog += `<br>• Status Diubah ke <strong>${status}</strong> (${nowStr})`;
+            historyLog += `<br>• Status diubah ke <strong>${status}</strong> (${nowStr})`;
         }
 
         await supabaseClient.from('devices').update({
