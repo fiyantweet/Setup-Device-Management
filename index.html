@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoPilot Device Manager | Cloud Edition</title>
+    <title>AutoPilot Device Manager | Black Edition</title>
     <link rel="stylesheet" href="style.css">
     
     <!-- Library SheetJS untuk Export/Import Excel -->
@@ -20,19 +20,19 @@
         
         <!-- Form Login -->
         <div id="login-card" class="card relative">
-            <!-- Hidden Demo Login -->
-            <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Hidden Demo Area"></div>
+            <!-- Hidden Button untuk Auto-Fill Akun Demo -->
+            <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Klik untuk Demo Akun"></div>
 
             <h2>IT <span class="text-primary">AutoPilot</span></h2>
-            <p class="text-muted mb-20">Sistem Manajemen Setup & Deploy</p>
+            <p class="text-muted mb-20">Sistem Manajemen Setup & Deploy Device</p>
             
             <label>Username</label>
-            <input type="text" id="login-user" class="input-form" placeholder="Ketik Username..." required>
+            <input type="text" id="login-user" class="input-form" placeholder="Masukkan Username" required>
             
             <label>Password</label>
-            <input type="password" id="login-pass" class="input-form" placeholder="Ketik Password..." required>
+            <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SYSTEM</button>
+            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -42,7 +42,7 @@
         <!-- Form 2FA Authenticator -->
         <div id="mfa-card" class="card hidden">
             <h2>Verifikasi <span class="text-primary">2FA</span></h2>
-            <p id="mfa-instruction" class="text-muted mb-20">Masukkan 6 digit kode Authenticator Anda.</p>
+            <p id="mfa-instruction" class="text-muted mb-20">Masukkan 6 digit kode dari aplikasi Authenticator Anda.</p>
             
             <div id="qr-container" class="hidden mb-20 text-center">
                 <p class="text-warning" style="font-size: 11px; margin-bottom: 10px;">SCAN BARCODE INI (SETUP PERTAMA)</p>
@@ -59,7 +59,7 @@
         <!-- Form Reset Password -->
         <div id="reset-card" class="card hidden">
             <h2>Reset <span class="text-warning">Password</span></h2>
-            <p class="text-muted mb-20">Ubah password akses langsung dari sini.</p>
+            <p class="text-muted mb-20">Bypass verifikasi email. Ubah password akses langsung.</p>
             
             <label>Username Terdaftar</label>
             <input type="text" id="reset-user" class="input-form" placeholder="Masukkan Username">
@@ -75,7 +75,7 @@
     </div>
 
 
-    <!-- ==================== HALAMAN DASHBOARD ==================== -->
+    <!-- ==================== HALAMAN DASHBOARD CLOUD ==================== -->
     <div id="app-section" class="hidden">
         
         <nav class="navbar">
@@ -88,7 +88,7 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (KLIK UNTUK FILTER) -->
+            <!-- DASHBOARD PROGRESS (Klik Kartu untuk Filter) -->
             <div class="dashboard-stats">
                 <div class="stat-card box-total" onclick="setStatFilter('All')" title="Tampilkan Semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
@@ -110,11 +110,10 @@
             <!-- TAB 1: DEVICE MANAGEMENT -->
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
-                    <!-- FITUR PENCARIAN & FILTER DROPDOWN -->
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN / Email..." style="margin: 0; width: 220px;">
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, Email..." style="margin: 0; width: 220px;">
                         
-                        <!-- Dropdown Status -->
+                        <!-- Dropdown Filter Status -->
                         <select id="filter-status-select" class="input-form" style="margin: 0; width: 160px;" onchange="renderDevices()">
                             <option value="All">Semua Status</option>
                             <option value="Belum di setup">Belum di setup</option>
@@ -123,15 +122,15 @@
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
 
-                        <!-- Dropdown Tgl Deploy -->
+                        <!-- Dropdown Filter Urutan Tanggal (Realtime Sort) -->
                         <select id="sort-date-select" class="input-form" style="margin: 0; width: 170px;" onchange="renderDevices()">
-                            <option value="newest">Tgl Deploy: Terbaru</option>
-                            <option value="oldest">Tgl Deploy: Terlama</option>
+                            <option value="newest_update">Update Terbaru</option>
+                            <option value="newest_deploy">Tgl Deploy: Terbaru</option>
+                            <option value="oldest_deploy">Tgl Deploy: Terlama</option>
                         </select>
 
-                        <button class="btn btn-primary" onclick="searchDevice()">CARI</button>
+                        <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
                     </div>
-                    
                     <div class="action-box">
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
                         <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
@@ -150,7 +149,7 @@
                                 <th>Alamat Lengkap</th>
                                 <th>Tanggal Deploy</th>
                                 <th>Status Deploy</th>
-                                <th>Riwayat Status (Update)</th>
+                                <th style="width: 200px;">Riwayat Status Update</th>
                                 <th style="width: 120px;">Aksi</th>
                             </tr>
                         </thead>
@@ -159,7 +158,7 @@
                 </div>
             </div>
 
-            <!-- TAB 2: PENGATURAN USER -->
+            <!-- TAB 2: PENGATURAN USER ADMIN -->
             <div id="tab-admin" class="tab-content">
                 <div class="toolbar">
                     <h3 class="text-primary">Manajemen Akses Login</h3>
@@ -183,26 +182,26 @@
         </div>
     </div>
 
-    <!-- ==================== MODALS (POPUP FORM) ==================== -->
+    <!-- ==================== MODALS (POP-UP FORMS) ==================== -->
     <div id="modal-device" class="modal hidden">
         <div class="modal-box">
-            <h2 id="title-device" class="text-primary mb-20">Form Data Deploy</h2>
+            <h2 id="title-device" class="text-primary mb-20">Form Data Device</h2>
             <input type="hidden" id="dev-id">
             
             <label>Nama User (Penerima)</label>
             <input type="text" id="dev-nama" class="input-form" placeholder="Nama Karyawan/User">
             
-            <label>Serial Number</label>
+            <label>Serial Number (SN)</label>
             <input type="text" id="dev-sn" class="input-form" placeholder="SN Device / Laptop">
             
             <label>Email User</label>
             <input type="email" id="dev-email" class="input-form" placeholder="email@domain.com">
             
             <label>Alamat (Manual Input)</label>
-            <textarea id="dev-alamat" class="input-form" rows="2" placeholder="Input alamat pengiriman..."></textarea>
+            <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Alamat lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Klik ikon kalender)</label>
-            <!-- Fitur Input Type Date Memunculkan Kalender -->
+            <!-- Input Date HTML5 Native Calendar -->
+            <label>Tanggal Deploy (Pilih Kalender)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
@@ -224,19 +223,15 @@
         <div class="modal-box">
             <h2 id="title-user" class="text-primary mb-20">Form Akun Login</h2>
             <input type="hidden" id="usr-id">
-            
             <label>Username</label>
             <input type="text" id="usr-name" class="input-form" placeholder="Ketik username">
-            
             <label>Password</label>
-            <input type="text" id="usr-pass" class="input-form" placeholder="Ketik password">
-            
+            <input type="password" id="usr-pass" class="input-form" placeholder="Ketik password">
             <label>Level Akses / Role</label>
             <select id="usr-role" class="input-form">
-                <option value="Admin">Admin (Bisa Manage User)</option>
+                <option value="Admin">Admin (Kelola User & Device)</option>
                 <option value="Member">Member (Hanya Kelola Device)</option>
             </select>
-            
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('modal-user')">Batal</button>
                 <button class="btn btn-primary" onclick="saveUser()">Simpan Akun</button>
