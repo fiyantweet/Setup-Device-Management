@@ -23,7 +23,6 @@ body { background-color: var(--bg-main); color: var(--text-main); font-size: 14p
 .relative { position: relative; }
 .w-100 { width: 100%; }
 .mt-10 { margin-top: 10px; }
-.mb-15 { margin-bottom: 15px; }
 .mb-20 { margin-bottom: 20px; }
 .mt-15 { margin-top: 15px; text-align: center; }
 .text-primary { color: var(--primary); }
@@ -41,8 +40,8 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .btn-primary:hover { background-color: var(--primary-hover); }
 .btn-danger { background-color: var(--danger); color: #fff; }
 .btn-warning { background-color: var(--warning); color: #000; }
-.btn-secondary { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
-.btn-secondary:hover { background-color: var(--bg-hover); }
+.btn-secondary { background-color: #444; border: 1px solid var(--border); color: #fff; }
+.btn-secondary:hover { background-color: #555; }
 .btn-export { background-color: var(--btn-export); color: #000; box-shadow: 0 0 10px rgba(57, 255, 20, 0.3); text-transform: uppercase; }
 .btn-export:hover { background-color: #32e612; }
 .btn-import { background-color: var(--btn-import); color: #000; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); text-transform: uppercase; }

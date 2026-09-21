@@ -130,7 +130,7 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan sesi ke localStorage agar browser di-refresh tetap masuk aplikasi
+        // Simpan sesi persisten
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -163,7 +163,7 @@ async function handleReset() {
 
 function logout() {
     currentUser = null;
-    localStorage.removeItem('autopilot_current_user'); // Hapus sesi
+    localStorage.removeItem('autopilot_current_user');
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
     document.querySelectorAll('.input-form').forEach(el => el.value = '');
@@ -206,13 +206,13 @@ async function updateDashboardStats() {
     document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
-// Fungsi filter saat kartu statistik diklik
+// Fungsi Klik Kartu Statistik untuk Filter Status
 function setStatFilter(status) {
     document.getElementById('filter-status-select').value = status;
     renderDevices();
 }
 
-// Format Tanggal Indonesia (Hari, Bulan, Tahun)
+// Format Tanggal: Hari, Bulan, Tahun (Format Indonesia Lengkap)
 function formatTanggalIndo(dateString) {
     if (!dateString) return '-';
     const parts = dateString.split('-');
@@ -228,7 +228,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES & HISTORY
+// 3. CRUD DEVICES & RIWAYAT STATUS
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -247,13 +247,13 @@ async function renderDevices() {
 
     let list = devices || [];
 
-    // Filter Dropdown Status
+    // Filter berdasarkan Dropdown Status Deploy
     const selectedStatus = document.getElementById('filter-status-select').value;
     if (selectedStatus !== 'All') {
         list = list.filter(d => d.status === selectedStatus);
     }
 
-    // Filter Pencarian (Nama User, Serial Number, Email)
+    // Filter Pencarian Multi-Kriteria (Nama User, Serial Number, Email)
     const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
     if (searchVal) {
         list = list.filter(d => 
@@ -263,13 +263,13 @@ async function renderDevices() {
         );
     }
 
-    // Sortir Tanggal Deploy
+    // Sortir Tanggal Deploy (Awal/Terlama vs Terbaru)
     const sortVal = document.getElementById('sort-date-select').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
         const dateB = b.tanggal || '';
         if (sortVal === 'oldest') {
-            return dateA.localeCompare(dateB); // Awal / Terlama
+            return dateA.localeCompare(dateB); // Dari awal / terlama
         } else {
             return dateB.localeCompare(dateA); // Terbaru
         }
@@ -286,8 +286,9 @@ async function renderDevices() {
                 <td>${getStatusBadge(d.status)}</td>
                 <td><div class="history-text">${d.history || 'Dibuat: -'}</div></td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
-                    <button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
+                    <button class="btn btn-warning" style="padding:5px 8px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
+                    <button class="btn btn-secondary" style="padding:5px 8px; font-size:11px;" onclick="clearHistory(${d.id})" title="Reset/Clear Riwayat Status">Clear</button>
+                    <button class="btn btn-danger" style="padding:5px 8px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
                 </td>
             </tr>
         `;
@@ -311,19 +312,24 @@ async function saveDevice() {
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (id) {
-        const { data: oldData } = await supabaseClient.from('devices').select('history, status').eq('id', id).single();
-        let historyLog = oldData?.history || '';
+        // Ambil data lama untuk memeriksa perubahan status
+        const { data: oldData } = await supabaseClient.from('devices').select('status').eq('id', id).single();
+        let historyLog = '';
         
         if (oldData?.status !== status) {
-            historyLog += `<br>• Status diubah ke <strong>${status}</strong> (${nowStr})`;
+            // Replace update dengan status riwayat terbaru
+            historyLog = `Update Terbaru (${nowStr}): Status diubah ke <strong>${status}</strong>`;
         } else {
-            historyLog += `<br>• Diperbarui pada ${nowStr}`;
+            // Pertahankan update sebelumnya jika status tidak berubah
+            const { data: currentRecord } = await supabaseClient.from('devices').select('history').eq('id', id).single();
+            historyLog = currentRecord?.history || `Diperbarui pada ${nowStr}`;
         }
 
         await supabaseClient.from('devices').update({
             nama, sn, email, alamat, tanggal, status, history: historyLog
         }).eq('id', id);
     } else {
+        // Data Baru
         const newHistory = `Dibuat pada ${nowStr}`;
         await supabaseClient.from('devices').insert([{
             nama, sn, email, alamat, tanggal, status, history: newHistory
@@ -345,26 +351,14 @@ async function editDevice(id) {
         document.getElementById('dev-alamat').value = data.alamat;
         document.getElementById('dev-tgl').value = data.tanggal;
         document.getElementById('dev-status').value = data.status;
-        
-        // Tampilkan tombol Clear History saat mode Edit
-        document.getElementById('clear-history-container').classList.remove('hidden');
-        
         document.getElementById('modal-device').classList.remove('hidden');
     }
 }
 
-// Tombol Clear untuk mereset riwayat status update
-async function clearDeviceHistory() {
-    const id = document.getElementById('dev-id').value;
-    if(!id) return;
-    
-    if(confirm("Apakah Anda yakin ingin mereset/menghapus riwayat update status data ini?")) {
-        const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-        const resetLog = `Riwayat direset pada ${nowStr}`;
-        
-        await supabaseClient.from('devices').update({ history: resetLog }).eq('id', id);
-        alert("Riwayat berhasil dibersihkan!");
-        closeModal('modal-device');
+// Fungsi Tombol Clear Riwayat Status Update
+async function clearHistory(id) {
+    if(confirm("Apakah Anda ingin mereset/membersihkan riwayat status update untuk device ini?")) {
+        await supabaseClient.from('devices').update({ history: 'Riwayat dikosongkan' }).eq('id', id);
         renderDevices();
     }
 }
@@ -457,9 +451,6 @@ function openModal(modalId) {
         document.getElementById('dev-alamat').value = '';
         document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0];
         document.getElementById('dev-status').value = 'Belum di setup';
-        
-        // Sembunyikan tombol Clear History saat mode Tambah Baru
-        document.getElementById('clear-history-container').classList.add('hidden');
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
         document.getElementById('usr-id').value = '';
