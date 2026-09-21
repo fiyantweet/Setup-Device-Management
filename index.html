@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoPilot Device Manager | Supabase Cloud</title>
+    <title>AutoPilot Device Manager | Cloud Edition</title>
     <link rel="stylesheet" href="style.css">
     
     <!-- Library SheetJS untuk Export/Import Excel -->
@@ -20,18 +20,19 @@
         
         <!-- Form Login -->
         <div id="login-card" class="card relative">
-            <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Klik disini untuk isi otomatis (Demo)"></div>
+            <!-- Hidden Demo Login -->
+            <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Hidden Demo Area"></div>
 
             <h2>IT <span class="text-primary">AutoPilot</span></h2>
-            <p class="text-muted mb-20">Sistem Manajemen Setup & Deploy Cloud</p>
+            <p class="text-muted mb-20">Sistem Manajemen Setup & Deploy</p>
             
             <label>Username</label>
-            <input type="text" id="login-user" class="input-form" placeholder="Masukkan Username" required>
+            <input type="text" id="login-user" class="input-form" placeholder="Ketik Username..." required>
             
             <label>Password</label>
-            <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
+            <input type="password" id="login-pass" class="input-form" placeholder="Ketik Password..." required>
             
-            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SYSTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -41,7 +42,7 @@
         <!-- Form 2FA Authenticator -->
         <div id="mfa-card" class="card hidden">
             <h2>Verifikasi <span class="text-primary">2FA</span></h2>
-            <p id="mfa-instruction" class="text-muted mb-20">Masukkan 6 digit kode dari aplikasi Authenticator Anda.</p>
+            <p id="mfa-instruction" class="text-muted mb-20">Masukkan 6 digit kode Authenticator Anda.</p>
             
             <div id="qr-container" class="hidden mb-20 text-center">
                 <p class="text-warning" style="font-size: 11px; margin-bottom: 10px;">SCAN BARCODE INI (SETUP PERTAMA)</p>
@@ -58,7 +59,7 @@
         <!-- Form Reset Password -->
         <div id="reset-card" class="card hidden">
             <h2>Reset <span class="text-warning">Password</span></h2>
-            <p class="text-muted mb-20">Bypass verifikasi email. Ubah password akses langsung.</p>
+            <p class="text-muted mb-20">Ubah password akses langsung dari sini.</p>
             
             <label>Username Terdaftar</label>
             <input type="text" id="reset-user" class="input-form" placeholder="Masukkan Username">
@@ -87,32 +88,34 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (Kartu yang bisa diklik untuk filter otomatis) -->
+            <!-- DASHBOARD PROGRESS (KLIK UNTUK FILTER) -->
             <div class="dashboard-stats">
-                <div class="stat-card box-total" onclick="setStatFilter('All')" title="Klik untuk tampilkan semua device">
+                <div class="stat-card box-total" onclick="setStatFilter('All')" title="Tampilkan Semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
-                <div class="stat-card box-belum" onclick="setStatFilter('Belum di setup')" title="Klik untuk filter Belum di setup">
+                <div class="stat-card box-belum" onclick="setStatFilter('Belum di setup')" title="Filter: Belum di setup">
                     <h3>Belum di setup</h3><h2 id="stat-belum">0</h2>
                 </div>
-                <div class="stat-card box-progress" onclick="setStatFilter('On progress')" title="Klik untuk filter On Progress">
+                <div class="stat-card box-progress" onclick="setStatFilter('On progress')" title="Filter: On Progress">
                     <h3>On Progress</h3><h2 id="stat-progress">0</h2>
                 </div>
-                <div class="stat-card box-setup" onclick="setStatFilter('Done setup')" title="Klik untuk filter Done Setup">
+                <div class="stat-card box-setup" onclick="setStatFilter('Done setup')" title="Filter: Done Setup">
                     <h3>Done Setup</h3><h2 id="stat-setup">0</h2>
                 </div>
-                <div class="stat-card box-deploy" onclick="setStatFilter('Done deploy user')" title="Klik untuk filter Done Deploy">
+                <div class="stat-card box-deploy" onclick="setStatFilter('Done deploy user')" title="Filter: Done Deploy User">
                     <h3>Done Deploy User</h3><h2 id="stat-deploy">0</h2>
                 </div>
             </div>
 
-            <!-- TAB 1: DEVICE -->
+            <!-- TAB 1: DEVICE MANAGEMENT -->
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
+                    <!-- FITUR PENCARIAN & FILTER DROPDOWN -->
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, atau Email..." style="margin: 0; width: 220px;">
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN / Email..." style="margin: 0; width: 220px;">
                         
-                        <select id="filter-status-select" class="input-form" style="margin: 0; width: 170px;" onchange="renderDevices()">
+                        <!-- Dropdown Status -->
+                        <select id="filter-status-select" class="input-form" style="margin: 0; width: 160px;" onchange="renderDevices()">
                             <option value="All">Semua Status</option>
                             <option value="Belum di setup">Belum di setup</option>
                             <option value="On progress">On progress</option>
@@ -120,13 +123,15 @@
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
 
-                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
+                        <!-- Dropdown Tgl Deploy -->
+                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 170px;" onchange="renderDevices()">
                             <option value="newest">Tgl Deploy: Terbaru</option>
                             <option value="oldest">Tgl Deploy: Terlama</option>
                         </select>
 
-                        <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
+                        <button class="btn btn-primary" onclick="searchDevice()">CARI</button>
                     </div>
+                    
                     <div class="action-box">
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
                         <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
@@ -143,9 +148,9 @@
                                 <th>Serial Number</th>
                                 <th>Email</th>
                                 <th>Alamat Lengkap</th>
-                                <th style="width: 170px;">Tgl Deploy</th>
+                                <th>Tanggal Deploy</th>
                                 <th>Status Deploy</th>
-                                <th>Riwayat Status Update</th>
+                                <th>Riwayat Status (Update)</th>
                                 <th style="width: 120px;">Aksi</th>
                             </tr>
                         </thead>
@@ -154,10 +159,10 @@
                 </div>
             </div>
 
-            <!-- TAB 2: USER MANAGEMENT -->
+            <!-- TAB 2: PENGATURAN USER -->
             <div id="tab-admin" class="tab-content">
                 <div class="toolbar">
-                    <h3 class="text-primary">Manajemen Hak Akses Login Cloud</h3>
+                    <h3 class="text-primary">Manajemen Akses Login</h3>
                     <button class="btn btn-primary" onclick="openModal('modal-user')">+ Tambah User Akses</button>
                 </div>
                 <div class="table-wrapper">
@@ -178,10 +183,10 @@
         </div>
     </div>
 
-    <!-- MODALS (POPUP FORM) -->
+    <!-- ==================== MODALS (POPUP FORM) ==================== -->
     <div id="modal-device" class="modal hidden">
         <div class="modal-box">
-            <h2 id="title-device" class="text-primary mb-20">Form Deploy Device</h2>
+            <h2 id="title-device" class="text-primary mb-20">Form Data Deploy</h2>
             <input type="hidden" id="dev-id">
             
             <label>Nama User (Penerima)</label>
@@ -194,9 +199,10 @@
             <input type="email" id="dev-email" class="input-form" placeholder="email@domain.com">
             
             <label>Alamat (Manual Input)</label>
-            <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
+            <textarea id="dev-alamat" class="input-form" rows="2" placeholder="Input alamat pengiriman..."></textarea>
             
-            <label>Tanggal Deploy (Klik Ikon Kalender)</label>
+            <label>Tanggal Deploy (Klik ikon kalender)</label>
+            <!-- Fitur Input Type Date Memunculkan Kalender -->
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
