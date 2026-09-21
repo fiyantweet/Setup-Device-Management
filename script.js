@@ -12,9 +12,8 @@ try {
 }
 
 let currentUser = null;
-let currentStatusFilter = 'All';
 
-// Sesi Persisten saat Browser Dimuat / Di-refresh
+// Cek Sesi Persisten saat Browser Dimuat / Di-refresh
 window.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('autopilot_current_user');
     if (savedUser) {
@@ -131,6 +130,7 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
+        // Simpan sesi login ke localStorage agar persisten saat refresh
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -163,7 +163,7 @@ async function handleReset() {
 
 function logout() {
     currentUser = null;
-    localStorage.removeItem('autopilot_current_user');
+    localStorage.removeItem('autopilot_current_user'); // Hapus sesi
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
     document.querySelectorAll('.input-form').forEach(el => el.value = '');
@@ -206,6 +206,7 @@ async function updateDashboardStats() {
     document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
+// Filter saat kartu statistik diklik
 function filterByStatCard(status) {
     document.getElementById('filter-status').value = status;
     renderDevices();
@@ -223,7 +224,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES & SELECT FILTERS / HISTORY
+// 3. CRUD DEVICES & HISTORY
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -242,16 +243,13 @@ async function renderDevices() {
 
     let list = devices || [];
 
-    // Populate dynamic column select filters
-    populateColumnSelects(list);
-
-    // Filter Status Dropdown
+    // 1. Filter berdasarkan Dropdown Status Deploy
     const selectedStatus = document.getElementById('filter-status').value;
     if (selectedStatus !== 'All') {
         list = list.filter(d => d.status === selectedStatus);
     }
 
-    // Filter pencarian teks umum
+    // 2. Filter berdasarkan Pencarian Teks
     const searchVal = document.getElementById('search-input').value.toLowerCase();
     if (searchVal) {
         list = list.filter(d => 
@@ -260,33 +258,29 @@ async function renderDevices() {
         );
     }
 
-    // Filter spesifik per kolom select
-    const fNama = document.getElementById('select-filter-nama').value;
-    const fSn = document.getElementById('select-filter-sn').value;
-    const fEmail = document.getElementById('select-filter-email').value;
-    const fAlamat = document.getElementById('select-filter-alamat').value;
+    // 3. Filter berdasarkan Dropdown Select History Status
+    const filterHistory = document.getElementById('filter-history').value;
+    if (filterHistory === 'Dibuat') {
+        list = list.filter(d => d.history && d.history.includes('Dibuat'));
+    } else if (filterHistory === 'Diubah') {
+        list = list.filter(d => d.history && d.history.includes('Diubah'));
+    }
 
-    if (fNama) list = list.filter(d => d.nama === fNama);
-    if (fSn) list = list.filter(d => d.sn === fSn);
-    if (fEmail) list = list.filter(d => d.email === fEmail);
-    if (fAlamat) list = list.filter(d => d.alamat === fAlamat);
-
-    // Sort Tanggal Deploy
+    // 4. Sortir berdasarkan Dropdown Select Tgl Deploy (Terlama / Terbaru)
     const sortVal = document.getElementById('sort-tgl').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
         const dateB = b.tanggal || '';
         if (sortVal === 'oldest') {
-            return dateA.localeCompare(dateB);
+            return dateA.localeCompare(dateB); // Awal / Terlama
         } else {
-            return dateB.localeCompare(dateA);
+            return dateB.localeCompare(dateA); // Terbaru
         }
     });
 
     list.forEach(d => {
         tbody.innerHTML += `
             <tr>
-                <td><input type="checkbox" class="row-checkbox" value="${d.id}"></td>
                 <td>${d.nama || ''}</td>
                 <td>${d.sn || ''}</td>
                 <td>${d.email || ''}</td>
@@ -302,48 +296,6 @@ async function renderDevices() {
         `;
     });
     updateDashboardStats();
-}
-
-function populateColumnSelects(devices) {
-    const fNama = document.getElementById('select-filter-nama');
-    const fSn = document.getElementById('select-filter-sn');
-    const fEmail = document.getElementById('select-filter-email');
-    const fAlamat = document.getElementById('select-filter-alamat');
-
-    const currNama = fNama.value;
-    const currSn = fSn.value;
-    const currEmail = fEmail.value;
-    const currAlamat = fAlamat.value;
-
-    const uniqueNama = [...new Set(devices.map(d => d.nama).filter(Boolean))];
-    const uniqueSn = [...new Set(devices.map(d => d.sn).filter(Boolean))];
-    const uniqueEmail = [...new Set(devices.map(d => d.email).filter(Boolean))];
-    const uniqueAlamat = [...new Set(devices.map(d => d.alamat).filter(Boolean))];
-
-    fNama.innerHTML = '<option value="">Semua Nama User</option>' + uniqueNama.map(n => `<option value="${n}">${n}</option>`).join('');
-    fSn.innerHTML = '<option value="">Semua Serial Number</option>' + uniqueSn.map(s => `<option value="${s}">${s}</option>`).join('');
-    fEmail.innerHTML = '<option value="">Semua Email</option>' + uniqueEmail.map(e => `<option value="${e}">${e}</option>`).join('');
-    fAlamat.innerHTML = '<option value="">Semua Alamat</option>' + uniqueAlamat.map(a => `<option value="${a}">${a}</option>`).join('');
-
-    fNama.value = currNama;
-    fSn.value = currSn;
-    fEmail.value = currEmail;
-    fAlamat.value = currAlamat;
-}
-
-function resetColumnFilters() {
-    document.getElementById('select-filter-nama').value = '';
-    document.getElementById('select-filter-sn').value = '';
-    document.getElementById('select-filter-email').value = '';
-    document.getElementById('select-filter-alamat').value = '';
-    document.getElementById('filter-status').value = 'All';
-    document.getElementById('search-input').value = '';
-    renderDevices();
-}
-
-function toggleSelectAll(master) {
-    const checkboxes = document.querySelectorAll('.row-checkbox');
-    checkboxes.forEach(cb => cb.checked = master.checked);
 }
 
 async function searchDevice() {
@@ -362,14 +314,13 @@ async function saveDevice() {
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (id) {
-        const { data: oldData } = await supabaseClient.from('devices').select('history, status, tanggal').eq('id', id).single();
+        const { data: oldData } = await supabaseClient.from('devices').select('history, status').eq('id', id).single();
         let historyLog = oldData?.history || '';
         
         if (oldData?.status !== status) {
             historyLog += `<br>• Status diubah ke <strong>${status}</strong> (${nowStr})`;
-        }
-        if (oldData?.tanggal !== tanggal) {
-            historyLog += `<br>• Tgl deploy diubah ke ${formatTanggalIndo(tanggal)} (${nowStr})`;
+        } else {
+            historyLog += `<br>• Data diperbarui (${nowStr})`;
         }
 
         await supabaseClient.from('devices').update({
@@ -487,7 +438,7 @@ function openModal(modalId) {
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
         document.getElementById('dev-alamat').value = '';
-        document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0];
+        document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0]; // Default hari ini
         document.getElementById('dev-status').value = 'Belum di setup';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';

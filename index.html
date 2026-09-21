@@ -31,7 +31,7 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button id="btn-login-action" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -110,10 +110,10 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / Serial Number..." style="margin: 0; width: 180px;">
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama / SN..." style="margin: 0; width: 160px;">
                         
-                        <!-- Dropdown Status Deploy -->
-                        <select id="filter-status" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
+                        <!-- Dropdown Filter Status -->
+                        <select id="filter-status" class="input-form" style="margin: 0; width: 140px;" onchange="renderDevices()">
                             <option value="All">Semua Status</option>
                             <option value="Belum di setup">Belum di setup</option>
                             <option value="On progress">On progress</option>
@@ -121,10 +121,17 @@
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
 
-                        <!-- Dropdown Sort Tgl Deploy -->
-                        <select id="sort-tgl" class="input-form" style="margin: 0; width: 160px;" onchange="renderDevices()">
+                        <!-- Dropdown Select Tgl Deploy (Sort/Filter Urutan) -->
+                        <select id="sort-tgl" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
                             <option value="oldest">Tgl: Awal (Terlama)</option>
                             <option value="newest">Tgl: Terbaru</option>
+                        </select>
+
+                        <!-- Dropdown Select History Status -->
+                        <select id="filter-history" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
+                            <option value="All">Semua History</option>
+                            <option value="Dibuat">Pernah Dibuat</option>
+                            <option value="Diubah">Pernah Diubah</option>
                         </select>
 
                         <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
@@ -137,36 +144,17 @@
                     </div>
                 </div>
 
-                <!-- Fitur Select / Filter Kolom Tambahan -->
-                <div class="toolbar-sub" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; background: var(--bg-card); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
-                    <span style="font-size: 12px; color: var(--text-muted); align-self: center; font-weight: bold;">SELECT / FILTER KOLOM:</span>
-                    <select id="select-filter-nama" class="input-form" style="margin:0; width: 140px;" onchange="renderDevices()">
-                        <option value="">Semua Nama User</option>
-                    </select>
-                    <select id="select-filter-sn" class="input-form" style="margin:0; width: 140px;" onchange="renderDevices()">
-                        <option value="">Semua Serial Number</option>
-                    </select>
-                    <select id="select-filter-email" class="input-form" style="margin:0; width: 140px;" onchange="renderDevices()">
-                        <option value="">Semua Email</option>
-                    </select>
-                    <select id="select-filter-alamat" class="input-form" style="margin:0; width: 140px;" onchange="renderDevices()">
-                        <option value="">Semua Alamat</option>
-                    </select>
-                    <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;" onclick="resetColumnFilters()">Reset Filter</button>
-                </div>
-
                 <div class="table-wrapper">
                     <table>
                         <thead>
                             <tr>
-                                <th style="width: 40px;"><input type="checkbox" id="select-all" onclick="toggleSelectAll(this)"></th>
                                 <th>Nama User</th>
                                 <th>Serial Number</th>
                                 <th>Email</th>
                                 <th>Alamat Lengkap</th>
                                 <th>Tgl Deploy (Hari, Bulan, Tahun)</th>
                                 <th>Status Deploy</th>
-                                <th>History / Riwayat Status</th>
+                                <th>History Status (Dibuat & Diubah)</th>
                                 <th style="width: 120px;">Aksi</th>
                             </tr>
                         </thead>
@@ -217,7 +205,7 @@
             <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Pilih Hari, Bulan, Tahun dari Kalender)</label>
+            <label>Tanggal Deploy (Pilih Kalender Hari, Tanggal, Tahun)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
