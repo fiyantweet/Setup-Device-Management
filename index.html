@@ -31,7 +31,7 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button id="btn-login-sys" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -87,7 +87,7 @@
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (Klik untuk Filter Real-Time) -->
+            <!-- DASHBOARD PROGRESS (Klik Kartu untuk Filter Real-time) -->
             <div class="dashboard-stats">
                 <div class="stat-card box-total" onclick="setStatFilter('All')" style="cursor:pointer;" title="Tampilkan Semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
@@ -110,8 +110,9 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, atau Email..." style="margin: 0; width: 200px;">
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, atau Email..." style="margin: 0; width: 220px;">
                         
+                        <!-- Dropdown Status Deploy -->
                         <select id="filter-status-select" class="input-form" style="margin: 0; width: 160px;" onchange="renderDevices()">
                             <option value="All">Status: Semua</option>
                             <option value="Belum di setup">Belum di setup</option>
@@ -120,9 +121,10 @@
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
 
-                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
-                            <option value="oldest">Tgl: Awal</option>
-                            <option value="newest">Tgl: Terbaru</option>
+                        <!-- Dropdown Tgl Deploy (Sort / Urutkan) -->
+                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 160px;" onchange="renderDevices()">
+                            <option value="oldest">Tgl Deploy: Awal</option>
+                            <option value="newest">Tgl Deploy: Terbaru</option>
                         </select>
 
                         <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
@@ -145,8 +147,8 @@
                                 <th>Alamat Lengkap</th>
                                 <th>Tgl Deploy</th>
                                 <th>Status Deploy</th>
-                                <th>Riwayat Status (Update Realtime)</th>
-                                <th style="width: 150px;">Aksi</th>
+                                <th>Riwayat Status (Realtime Update)</th>
+                                <th style="width: 170px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="table-device"></tbody>
@@ -196,7 +198,7 @@
             <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Pilih Kalender)</label>
+            <label>Tanggal Deploy (Kalender: Hari, Bulan, Tahun)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>

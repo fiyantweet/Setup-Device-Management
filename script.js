@@ -130,7 +130,7 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan sesi persisten
+        // Simpan sesi ke localStorage agar tetap login saat browser di-refresh
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -163,7 +163,7 @@ async function handleReset() {
 
 function logout() {
     currentUser = null;
-    localStorage.removeItem('autopilot_current_user');
+    localStorage.removeItem('autopilot_current_user'); // Hapus sesi
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
     document.querySelectorAll('.input-form').forEach(el => el.value = '');
@@ -206,13 +206,13 @@ async function updateDashboardStats() {
     document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
-// Fungsi Klik Kartu Statistik untuk Filter Status
+// Fungsi Klik Kartu Statistik untuk Filter Real-time
 function setStatFilter(status) {
     document.getElementById('filter-status-select').value = status;
     renderDevices();
 }
 
-// Format Tanggal: Hari, Bulan, Tahun (Format Indonesia Lengkap)
+// Format Tanggal Lengkap: Hari, Tanggal Bulan Tahun
 function formatTanggalIndo(dateString) {
     if (!dateString) return '-';
     const parts = dateString.split('-');
@@ -228,7 +228,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES & RIWAYAT STATUS
+// 3. CRUD DEVICES, PENCARIAN & HISTORY
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -263,13 +263,13 @@ async function renderDevices() {
         );
     }
 
-    // Sortir Tanggal Deploy (Awal/Terlama vs Terbaru)
+    // Sortir Tanggal Deploy (Awal / Terlama vs Terbaru)
     const sortVal = document.getElementById('sort-date-select').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
         const dateB = b.tanggal || '';
         if (sortVal === 'oldest') {
-            return dateA.localeCompare(dateB); // Dari awal / terlama
+            return dateA.localeCompare(dateB); // Terlama / Awal
         } else {
             return dateB.localeCompare(dateA); // Terbaru
         }
@@ -284,10 +284,14 @@ async function renderDevices() {
                 <td>${d.alamat || ''}</td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
                 <td>${getStatusBadge(d.status)}</td>
-                <td><div class="history-text">${d.history || 'Dibuat: -'}</div></td>
+                <td>
+                    <div class="history-container">
+                        ${d.history || 'Belum ada riwayat update.'}
+                    </div>
+                </td>
                 <td>
                     <button class="btn btn-warning" style="padding:5px 8px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
-                    <button class="btn btn-secondary" style="padding:5px 8px; font-size:11px;" onclick="clearHistory(${d.id})" title="Reset/Clear Riwayat Status">Clear</button>
+                    <button class="btn btn-clear" style="padding:5px 8px; font-size:11px;" onclick="clearHistory(${d.id})" title="Reset Riwayat Status">Clear</button>
                     <button class="btn btn-danger" style="padding:5px 8px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
                 </td>
             </tr>
@@ -312,25 +316,20 @@ async function saveDevice() {
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (id) {
-        // Ambil data lama untuk memeriksa perubahan status
-        const { data: oldData } = await supabaseClient.from('devices').select('status').eq('id', id).single();
-        let historyLog = '';
+        const { data: oldData } = await supabaseClient.from('devices').select('history, status').eq('id', id).single();
+        let historyLog = oldData?.history || '';
         
         if (oldData?.status !== status) {
-            // Replace update dengan status riwayat terbaru
-            historyLog = `Update Terbaru (${nowStr}): Status diubah ke <strong>${status}</strong>`;
-        } else {
-            // Pertahankan update sebelumnya jika status tidak berubah
-            const { data: currentRecord } = await supabaseClient.from('devices').select('history').eq('id', id).single();
-            historyLog = currentRecord?.history || `Diperbarui pada ${nowStr}`;
+            // Replace/Prepend update status terbaru di bagian atas
+            const newUpdate = `• Status diubah ke <strong>${status}</strong> (${nowStr})`;
+            historyLog = historyLog ? newUpdate + '<br>' + historyLog : newUpdate;
         }
 
         await supabaseClient.from('devices').update({
             nama, sn, email, alamat, tanggal, status, history: historyLog
         }).eq('id', id);
     } else {
-        // Data Baru
-        const newHistory = `Dibuat pada ${nowStr}`;
+        const newHistory = `• Data dibuat pada ${nowStr}`;
         await supabaseClient.from('devices').insert([{
             nama, sn, email, alamat, tanggal, status, history: newHistory
         }]);
@@ -355,10 +354,10 @@ async function editDevice(id) {
     }
 }
 
-// Fungsi Tombol Clear Riwayat Status Update
 async function clearHistory(id) {
-    if(confirm("Apakah Anda ingin mereset/membersihkan riwayat status update untuk device ini?")) {
-        await supabaseClient.from('devices').update({ history: 'Riwayat dikosongkan' }).eq('id', id);
+    if(confirm("Apakah Anda yakin ingin mereset/menghapus Riwayat Status Update untuk device ini?")) {
+        const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+        await supabaseClient.from('devices').update({ history: `• Riwayat direset pada ${nowStr}` }).eq('id', id);
         renderDevices();
     }
 }
@@ -493,7 +492,7 @@ async function importExcel(event) {
                 alamat: item.alamat || '',
                 tanggal: item.tanggal || new Date().toISOString().split('T')[0],
                 status: item.status || 'Belum di setup',
-                history: `Diimpor dari Excel pada ${nowStr}`
+                history: `• Diimpor dari Excel pada ${nowStr}`
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
