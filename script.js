@@ -1,7 +1,6 @@
 // ==========================================
 // KONEKSI SUPABASE CLOUD
 // ==========================================
-// PENTING: Ganti dengan URL dan Anon Key Anda
 const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
 
@@ -15,40 +14,40 @@ try {
 let currentUser = null;
 
 // ==========================================
-// SESI PERSISTEN (ANTI-LOGOUT SAAT REFRESH)
+// SESI PERSISTEN & EVENT LISTENER (ENTER KEY)
 // ==========================================
 window.addEventListener('DOMContentLoaded', () => {
-    // Mengecek apakah ada user yang sudah login sebelumnya di LocalStorage
+    // Mengecek apakah sebelumnya sudah login (Mencegah ter-logout saat refresh)
     const savedUser = localStorage.getItem('autopilot_current_user');
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
-        initApp(); // Langsung muat dashboard
+        initApp();
     }
 
-    // Aktifkan Fitur Tombol Enter
     setupEnterListeners();
 });
 
-// Setup tombol Enter untuk Login, Reset, dan Pencarian
 function setupEnterListeners() {
-    const ids = ['login-user', 'login-pass', 'mfa-code', 'reset-user', 'reset-pass', 'search-input'];
-    ids.forEach(id => {
+    const attachEnter = (id, action) => {
         const el = document.getElementById(id);
-        if(el) {
-            el.addEventListener('keypress', e => {
-                if(e.key === 'Enter') {
-                    if(id === 'login-user') document.getElementById('login-pass').focus();
-                    if(id === 'login-pass') handleLogin();
-                    if(id === 'mfa-code') handle2FA();
-                    if(id === 'reset-user') document.getElementById('reset-pass').focus();
-                    if(id === 'reset-pass') handleReset();
-                    if(id === 'search-input') searchDevice();
-                }
-            });
-        }
-    });
+        if(el) el.addEventListener('keypress', e => { if(e.key === 'Enter') action(); });
+    };
+    
+    // Login Form Enter keys
+    const lUser = document.getElementById('login-user');
+    if(lUser) lUser.addEventListener('keypress', e => { if(e.key === 'Enter') document.getElementById('login-pass').focus(); });
+    attachEnter('login-pass', handleLogin);
+    
+    // 2FA & Reset Password Enter Keys
+    attachEnter('mfa-code', handle2FA);
+    const rUser = document.getElementById('reset-user');
+    if(rUser) rUser.addEventListener('keypress', e => { if(e.key === 'Enter') document.getElementById('reset-pass').focus(); });
+    attachEnter('reset-pass', handleReset);
+    
+    // Search Enter Key
+    attachEnter('search-input', searchDevice);
 }
 
 // ==========================================
@@ -61,7 +60,7 @@ function toggleAuth(view) {
     document.getElementById(`${view}-card`).classList.remove('hidden');
 }
 
-// Fitur klik rahasia form login untuk demo cepat
+// Akun Demo Hidden Autofill
 function fillDemoAccount() {
     document.getElementById('login-user').value = 'admin';
     document.getElementById('login-pass').value = 'admin123';
@@ -75,7 +74,7 @@ async function handleLogin() {
     if (!user || !pass) return alert("Username dan Password wajib diisi!");
 
     if (!supabaseClient || SUPABASE_URL.includes('ISI_DENGAN')) {
-        alert("Peringatan: URL dan Anon Key Supabase belum disetting di file script.js!");
+        alert("Peringatan: URL dan Anon Key Supabase di file script.js belum dikonfigurasi.");
         return;
     }
 
@@ -87,19 +86,17 @@ async function handleLogin() {
             .eq('password', pass);
 
         if (error) return alert("Database Error: " + error.message);
-
+        
         if (!users || users.length === 0) {
-            return alert("Login Gagal: Username atau Password salah!");
+            return alert("Gagal Login: Username atau Password salah!");
         }
 
         currentUser = users[0];
         toggleAuth('mfa');
         prepareAuthenticator(currentUser);
         setTimeout(() => document.getElementById('mfa-code').focus(), 100);
-
     } catch (err) {
-        console.error(err);
-        alert("Terjadi kesalahan koneksi ke server Supabase.");
+        alert("Terjadi kesalahan koneksi ke Supabase.");
     }
 }
 
@@ -130,7 +127,7 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan Data User di Browser agar tidak logout saat di refresh
+        // Simpan sesi ke localstorage (Agar tidak logout ketika refresh)
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
@@ -150,7 +147,7 @@ async function handleReset() {
     const { data, error } = await supabaseClient.from('app_users').update({ password: newPass }).eq('username', user).select();
 
     if (error || !data || data.length === 0) {
-        alert("Gagal Reset: Username tidak ditemukan.");
+        alert("Gagal Reset: Username tidak ditemukan di database.");
     } else {
         alert("Reset Password Berhasil! Silakan login kembali.");
         toggleAuth('login');
@@ -167,13 +164,12 @@ function logout() {
 }
 
 // ==========================================
-// 2. INISIALISASI & DASHBOARD APP
+// 2. INISIALISASI & DASHBOARD STATS
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
     document.getElementById('login-role-badge').innerText = `[ ${currentUser.role} ]`;
 
-    // Pengaturan Tab Berdasarkan Role
     if(currentUser.role === 'Admin') {
         document.getElementById('tab-btn-admin').style.display = 'inline-block';
         renderUsers();
@@ -192,7 +188,7 @@ function switchTab(tabName) {
     event.currentTarget.classList.add('active');
 }
 
-async function updateDashboardStats(devicesList) {
+async function updateDashboardStats(devicesList = []) {
     document.getElementById('stat-total').innerText = devicesList.length;
     document.getElementById('stat-belum').innerText = devicesList.filter(d => d.status === 'Belum di setup').length;
     document.getElementById('stat-progress').innerText = devicesList.filter(d => d.status === 'On progress').length;
@@ -200,30 +196,25 @@ async function updateDashboardStats(devicesList) {
     document.getElementById('stat-deploy').innerText = devicesList.filter(d => d.status === 'Done deploy user').length;
 }
 
-// ==========================================
-// 3. CRUD & MANAJEMEN DEVICE (DENGAN FILTER & SORTING)
-// ==========================================
-
-// Fungsi Untuk Mengubah Format Tanggal (Contoh: Senin, 21 September 2026)
-function formatTanggalIndo(dateString) {
-    if (!dateString) return '-';
-    const d = new Date(dateString);
-    if (isNaN(d)) return dateString; // Fallback jika format salah
-    
-    return d.toLocaleDateString('id-ID', {
-        weekday: 'long', 
-        day: 'numeric', 
-        month: 'long', 
-        year: 'numeric'
-    });
-}
-
-// Fungsi Saat Kartu Dashboard di Klik (Statistik Filter)
+// Fungsi Klik Filter Statistik
 function setStatFilter(status) {
     document.getElementById('filter-status-select').value = status;
-    renderDevices(); // Proses ulang tabel
+    renderDevices();
 }
 
+// Format Tanggal: Hari, DD Bulan YYYY (Contoh: Senin, 21 September 2026)
+function formatTanggalIndo(dateString) {
+    if (!dateString) return '-';
+    // Menghindari timezone shift
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return dateString; 
+    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+    return dateObj.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ==========================================
+// 3. CRUD DEVICES, PENCARIAN & FILTERING
+// ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
     if(status === 'On progress') return `<span class="badge badge-progress">${status}</span>`;
@@ -234,20 +225,18 @@ function getStatusBadge(status) {
 
 async function renderDevices() {
     const { data: devices, error } = await supabaseClient.from('devices').select('*');
-    if (error) { console.error(error); return; }
+    if (error) return;
 
     let list = devices || [];
-    
-    // Update dashboard stats (Tanpa Filter) agar angka total tetap real
-    updateDashboardStats(list);
+    updateDashboardStats(list); // Update stat dashboard dengan data penuh sebelum di filter
 
-    // 1. FILTER: Dropdown Status / Klik Kartu
+    // 1. Terapkan Filter Dropdown Status
     const selectedStatus = document.getElementById('filter-status-select').value;
     if (selectedStatus !== 'All') {
         list = list.filter(d => d.status === selectedStatus);
     }
 
-    // 2. FILTER: Pencarian Multi-Kriteria (Nama, SN, Email)
+    // 2. Terapkan Pencarian Multi (Nama, SN, Email)
     const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
     if (searchVal) {
         list = list.filter(d => 
@@ -257,12 +246,12 @@ async function renderDevices() {
         );
     }
 
-    // 3. SORTING: Berdasarkan Tanggal Deploy 
+    // 3. Terapkan Sortir Tanggal Deploy
     const sortVal = document.getElementById('sort-date-select').value;
     list.sort((a, b) => {
-        const dateA = new Date(a.tanggal || 0);
-        const dateB = new Date(b.tanggal || 0);
-        return sortVal === 'newest' ? dateB - dateA : dateA - dateB;
+        const timeA = new Date(a.tanggal || 0).getTime();
+        const timeB = new Date(b.tanggal || 0).getTime();
+        return sortVal === 'oldest' ? timeA - timeB : timeB - timeA;
     });
 
     const tbody = document.getElementById('table-device');
@@ -271,13 +260,13 @@ async function renderDevices() {
     list.forEach(d => {
         tbody.innerHTML += `
             <tr>
-                <td>${d.nama || ''}</td>
+                <td><strong>${d.nama || ''}</strong></td>
                 <td>${d.sn || ''}</td>
                 <td>${d.email || ''}</td>
                 <td>${d.alamat || ''}</td>
-                <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
+                <td><span class="text-primary">${formatTanggalIndo(d.tanggal)}</span></td>
                 <td>${getStatusBadge(d.status)}</td>
-                <td><div class="history-text">${d.history || 'Dibuat: -'}</div></td>
+                <td><div class="history-text">${d.history || '<em>Belum ada riwayat update.</em>'}</div></td>
                 <td>
                     <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
                     <button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
@@ -287,9 +276,8 @@ async function renderDevices() {
     });
 }
 
-// Fungsi yang dipanggil oleh Tombol Cari
 function searchDevice() {
-    renderDevices(); 
+    renderDevices();
 }
 
 async function saveDevice() {
@@ -301,21 +289,24 @@ async function saveDevice() {
     const tanggal = document.getElementById('dev-tgl').value;
     const status = document.getElementById('dev-status').value;
 
+    if(!tanggal) return alert("Tanggal Deploy Wajib Diisi (Pilih di Kalender)!");
+
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (id) {
         const { data: oldData } = await supabaseClient.from('devices').select('history, status').eq('id', id).single();
         let historyLog = oldData?.history || '';
         
+        // Log realtime jika status berubah
         if (oldData?.status !== status) {
-            historyLog += `<br>• Status diubah ke <strong>${status}</strong> (${nowStr})`;
+            historyLog = `[Update] Status diubah ke <strong>${status}</strong> pada ${nowStr}<br><hr style="border-color:#333;margin:4px 0;">${historyLog}`;
         }
 
         await supabaseClient.from('devices').update({
             nama, sn, email, alamat, tanggal, status, history: historyLog
         }).eq('id', id);
     } else {
-        const newHistory = `Dibuat pada ${nowStr}`;
+        const newHistory = `[New] Data device dibuat pada ${nowStr}`;
         await supabaseClient.from('devices').insert([{
             nama, sn, email, alamat, tanggal, status, history: newHistory
         }]);
@@ -334,7 +325,7 @@ async function editDevice(id) {
         document.getElementById('dev-sn').value = data.sn;
         document.getElementById('dev-email').value = data.email;
         document.getElementById('dev-alamat').value = data.alamat;
-        document.getElementById('dev-tgl').value = data.tanggal; // Input type date menerima format YYYY-MM-DD
+        document.getElementById('dev-tgl').value = data.tanggal; // Value untuk input type="date"
         document.getElementById('dev-status').value = data.status;
         document.getElementById('modal-device').classList.remove('hidden');
     }
@@ -426,7 +417,8 @@ function openModal(modalId) {
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
         document.getElementById('dev-alamat').value = '';
-        document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0]; // Set default Tgl Hari Ini
+        // Set Default kalender ke Hari Ini (YYYY-MM-DD)
+        document.getElementById('dev-tgl').value = new Date().toLocaleDateString('en-CA');
         document.getElementById('dev-status').value = 'Belum di setup';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
@@ -468,9 +460,9 @@ async function importExcel(event) {
                 sn: item.sn || '',
                 email: item.email || '',
                 alamat: item.alamat || '',
-                tanggal: item.tanggal || new Date().toISOString().split('T')[0],
+                tanggal: item.tanggal || new Date().toLocaleDateString('en-CA'),
                 status: item.status || 'Belum di setup',
-                history: `Diimpor dari Excel pada ${nowStr}`
+                history: `[New] Diimpor dari Excel pada ${nowStr}`
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
