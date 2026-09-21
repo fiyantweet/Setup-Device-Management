@@ -1,62 +1,49 @@
 // ==========================================
-// PENGATURAN DATABASE (HYBRID: SUPABASE / LOCALSTORAGE)
+// KONEKSI SUPABASE CLOUD
 // ==========================================
-// JIKA SUPABASE_URL MASIH DEFAULT/KOSONG, SISTEM OTOMATIS MENGGUNAKAN LOCALSTORAGE
 const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
 
 let supabaseClient = null;
-let useLocalStorage = true; // Fallback jika supabase belum disetup
-
-if (!SUPABASE_URL.includes('ISI_DENGAN')) {
-    try {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        useLocalStorage = false;
-    } catch (e) { console.error(e); }
+try {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (e) {
+    console.error("Gagal menginisialisasi Supabase:", e);
 }
-
-// Inisialisasi Data Default LocalStorage (Hanya dipakai jika Supabase belum diset)
-let localDevices = JSON.parse(localStorage.getItem('ap_devices')) || [];
-let localUsers = JSON.parse(localStorage.getItem('ap_users')) || [
-    { id: 1, username: 'admin', password: 'admin123', role: 'Admin', is_2fa_setup: false },
-    { id: 2, username: 'member', password: 'member123', role: 'Member', is_2fa_setup: false }
-];
 
 let currentUser = null;
 
-// ==========================================
-// EVENT LISTENER AWAL
-// ==========================================
+// Cek Sesi Persisten saat Browser Dimuat / Di-refresh
 window.addEventListener('DOMContentLoaded', () => {
-    // 1. Cek Sesi Login (Refresh browser tetap di dashboard)
-    const savedSession = localStorage.getItem('autopilot_session');
-    if (savedSession) {
-        currentUser = JSON.parse(savedSession);
+    const savedUser = localStorage.getItem('autopilot_current_user');
+    if (savedUser) {
+        currentUser = JSON.parse(savedUser);
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
         initApp();
     }
 
-    // 2. Aktifkan Fungsi Tombol ENTER di Keyboard
     setupEnterListeners();
 });
 
 function setupEnterListeners() {
-    const bindEnter = (id, action) => {
-        const el = document.getElementById(id);
-        if(el) el.addEventListener('keypress', e => { if (e.key === 'Enter') action(); });
-    }
-    bindEnter('login-user', () => document.getElementById('login-pass').focus());
-    bindEnter('login-pass', handleLogin);
-    bindEnter('mfa-code', handle2FA);
-    bindEnter('reset-user', () => document.getElementById('reset-pass').focus());
-    bindEnter('reset-pass', handleReset);
-    bindEnter('search-input', searchDevice);
+    const lUser = document.getElementById('login-user');
+    const lPass = document.getElementById('login-pass');
+    const mCode = document.getElementById('mfa-code');
+    const rUser = document.getElementById('reset-user');
+    const rPass = document.getElementById('reset-pass');
+    const sInput = document.getElementById('search-input');
+
+    if(lUser) lUser.addEventListener('keypress', e => { if(e.key === 'Enter') lPass.focus(); });
+    if(lPass) lPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleLogin(); });
+    if(mCode) mCode.addEventListener('keypress', e => { if(e.key === 'Enter') handle2FA(); });
+    if(rUser) rUser.addEventListener('keypress', e => { if(e.key === 'Enter') rPass.focus(); });
+    if(rPass) rPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
+    if(sInput) sInput.addEventListener('keypress', e => { if(e.key === 'Enter') searchDevice(); });
 }
 
-
 // ==========================================
-// 1. SISTEM LOGIN & AUTENTIKASI
+// 1. AUTENTIKASI & LOGIN SISTEM
 // ==========================================
 function toggleAuth(view) {
     document.getElementById('login-card').classList.add('hidden');
@@ -65,7 +52,6 @@ function toggleAuth(view) {
     document.getElementById(`${view}-card`).classList.remove('hidden');
 }
 
-// Fitur Auto-fill untuk Demo (Klik Pojok Kanan Atas)
 function fillDemoAccount() {
     document.getElementById('login-user').value = 'admin';
     document.getElementById('login-pass').value = 'admin123';
@@ -76,62 +62,76 @@ async function handleLogin() {
     const user = document.getElementById('login-user').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
     
-    if (!user || !pass) return alert("Username dan Password wajib diisi!");
-
-    let accountFound = null;
-
-    if (!useLocalStorage) {
-        // Via Supabase
-        const { data } = await supabaseClient.from('app_users').select('*').eq('username', user).eq('password', pass);
-        if (data && data.length > 0) accountFound = data[0];
-    } else {
-        // Via LocalStorage (Fallback)
-        accountFound = localUsers.find(u => u.username === user && u.password === pass);
+    if (!user || !pass) {
+        alert("Username dan Password wajib diisi!");
+        return;
     }
 
-    if (!accountFound) return alert("Login Gagal: Username atau Password salah!");
+    if (!supabaseClient || SUPABASE_URL.includes('ISI_DENGAN')) {
+        alert("Konfigurasi Supabase URL dan Anon Key belum diisi di file script.js!");
+        return;
+    }
 
-    currentUser = accountFound;
-    toggleAuth('mfa');
-    prepareAuthenticator(currentUser);
-    setTimeout(() => document.getElementById('mfa-code').focus(), 100);
+    try {
+        const { data: users, error } = await supabaseClient
+            .from('app_users')
+            .select('*')
+            .eq('username', user)
+            .eq('password', pass);
+
+        if (error) {
+            alert("Database Error: " + error.message);
+            return;
+        }
+
+        if (!users || users.length === 0) {
+            alert("Login Gagal: Username atau Password salah!");
+            return;
+        }
+
+        currentUser = users[0];
+        toggleAuth('mfa');
+        prepareAuthenticator(currentUser);
+        setTimeout(() => document.getElementById('mfa-code').focus(), 100);
+
+    } catch (err) {
+        console.error("Login Exception:", err);
+        alert("Terjadi kesalahan koneksi ke server Supabase.");
+    }
 }
 
 function prepareAuthenticator(account) {
+    const qrContainer = document.getElementById('qr-container');
     const qrDiv = document.getElementById('qrcode');
+    const instruction = document.getElementById('mfa-instruction');
     qrDiv.innerHTML = ''; 
 
     if (!account.is_2fa_setup) {
-        document.getElementById('qr-container').classList.remove('hidden');
-        document.getElementById('mfa-instruction').innerText = "SETUP PERTAMA: Buka Authenticator dan Scan Barcode ini.";
-        const otpUrl = `otpauth://totp/AutoPilotApp:${account.username}?secret=JBSWY3DPEHPK3PXP&issuer=AutoPilotApp`;
-        new QRCode(qrDiv, { text: otpUrl, width: 140, height: 140, colorDark: "#000", colorLight: "#fff" });
+        qrContainer.classList.remove('hidden');
+        instruction.innerText = "SETUP PERTAMA: Buka Authenticator dan Scan Barcode ini.";
+        const appName = "AutoPilot_Cloud";
+        const otpUrl = `otpauth://totp/${appName}:${account.username}?secret=JBSWY3DPEHPK3PXP&issuer=${appName}`;
+        new QRCode(qrDiv, { text: otpUrl, width: 140, height: 140, colorDark: "#000", colorLight: "#ffffff" });
     } else {
-        document.getElementById('qr-container').classList.add('hidden');
-        document.getElementById('mfa-instruction').innerText = "Masukkan 6 digit kode dari aplikasi Authenticator Anda.";
+        qrContainer.classList.add('hidden');
+        instruction.innerText = "Masukkan 6 digit kode dari aplikasi Authenticator Anda.";
     }
 }
 
 async function handle2FA() {
     const code = document.getElementById('mfa-code').value.trim();
     
-    // Verifikasi 6 Angka Apapun (Simulasi)
     if (code.length === 6 && !isNaN(code)) {
-        
-        // Simpan status 2FA bahwa sudah pernah disetup
         if (!currentUser.is_2fa_setup) {
+            await supabaseClient
+                .from('app_users')
+                .update({ is_2fa_setup: true })
+                .eq('id', currentUser.id);
             currentUser.is_2fa_setup = true;
-            if (!useLocalStorage) {
-                await supabaseClient.from('app_users').update({ is_2fa_setup: true }).eq('id', currentUser.id);
-            } else {
-                const idx = localUsers.findIndex(u => u.id === currentUser.id);
-                localUsers[idx].is_2fa_setup = true;
-                localStorage.setItem('ap_users', JSON.stringify(localUsers));
-            }
         }
 
-        // Simpan Sesi di Browser agar saat refresh tidak logout
-        localStorage.setItem('autopilot_session', JSON.stringify(currentUser));
+        // Simpan sesi login ke localStorage agar persisten
+        localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
 
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
@@ -144,54 +144,45 @@ async function handle2FA() {
 async function handleReset() {
     const user = document.getElementById('reset-user').value.trim();
     const newPass = document.getElementById('reset-pass').value.trim();
+    
     if(!user || !newPass) return alert("Harap isi Username dan Password Baru!");
 
-    let isSuccess = false;
+    const { data, error } = await supabaseClient
+        .from('app_users')
+        .update({ password: newPass })
+        .eq('username', user)
+        .select();
 
-    if (!useLocalStorage) {
-        const { data } = await supabaseClient.from('app_users').update({ password: newPass }).eq('username', user).select();
-        isSuccess = (data && data.length > 0);
+    if (error || !data || data.length === 0) {
+        alert("Gagal Reset: Username tidak ditemukan di database.");
     } else {
-        const idx = localUsers.findIndex(u => u.username === user);
-        if(idx > -1) {
-            localUsers[idx].password = newPass;
-            localStorage.setItem('ap_users', JSON.stringify(localUsers));
-            isSuccess = true;
-        }
-    }
-
-    if (isSuccess) {
-        alert("Reset Password Berhasil! Silakan login kembali dengan password baru.");
+        alert("Reset Password Berhasil! Silakan login kembali.");
         toggleAuth('login');
-    } else {
-        alert("Gagal: Username tidak ditemukan di sistem.");
     }
 }
 
 function logout() {
     currentUser = null;
-    localStorage.removeItem('autopilot_session'); // Hapus sesi
+    localStorage.removeItem('autopilot_current_user'); // Hapus sesi
     document.getElementById('app-section').classList.add('hidden');
     document.getElementById('auth-section').classList.remove('hidden');
-    document.querySelectorAll('.input-form').forEach(el => el.value = ''); // Bersihkan input
+    document.querySelectorAll('.input-form').forEach(el => el.value = '');
     toggleAuth('login');
 }
 
-
 // ==========================================
-// 2. DASHBOARD & STATISTIK KLIK FILTER
+// 2. INISIALISASI & DASHBOARD
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
-    document.getElementById('login-role-badge').innerText = `[ Role: ${currentUser.role} ]`;
+    document.getElementById('login-role-badge').innerText = `[ ${currentUser.role} ]`;
 
-    // Pengaturan Hak Akses
     if(currentUser.role === 'Admin') {
         document.getElementById('tab-btn-admin').style.display = 'inline-block';
         renderUsers();
     } else {
         document.getElementById('tab-btn-admin').style.display = 'none';
-        switchTab('device'); // Paksa ke tab device
+        switchTab('device');
     }
 
     await renderDevices();
@@ -204,35 +195,41 @@ function switchTab(tabName) {
     event.currentTarget.classList.add('active');
 }
 
-// Fungsi Klik Kartu Statistik (Mengubah Dropdown Filter & Render)
-function setStatFilter(statusValue) {
-    document.getElementById('filter-status-select').value = statusValue;
+async function updateDashboardStats() {
+    const { data: devices } = await supabaseClient.from('devices').select('*');
+    if(!devices) return;
+    
+    document.getElementById('stat-total').innerText = devices.length;
+    document.getElementById('stat-belum').innerText = devices.filter(d => d.status === 'Belum di setup').length;
+    document.getElementById('stat-progress').innerText = devices.filter(d => d.status === 'On progress').length;
+    document.getElementById('stat-setup').innerText = devices.filter(d => d.status === 'Done setup').length;
+    document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
+}
+
+// Fungsi Klik Kartu Statistik untuk Filter Status
+function setStatFilter(status) {
+    document.getElementById('filter-status-select').value = status;
     renderDevices();
 }
 
-async function updateDashboardStats(dataList) {
-    document.getElementById('stat-total').innerText = dataList.length;
-    document.getElementById('stat-belum').innerText = dataList.filter(d => d.status === 'Belum di setup').length;
-    document.getElementById('stat-progress').innerText = dataList.filter(d => d.status === 'On progress').length;
-    document.getElementById('stat-setup').innerText = dataList.filter(d => d.status === 'Done setup').length;
-    document.getElementById('stat-deploy').innerText = dataList.filter(d => d.status === 'Done deploy user').length;
+// Format Tanggal Lengkap Indonesia: Hari, Tanggal Bulan Tahun
+function formatTanggalIndo(dateString) {
+    if (!dateString) return '-';
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return dateString;
+    const [year, month, day] = parts;
+    const d = new Date(year, month - 1, day);
+    return d.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
 }
 
-
 // ==========================================
-// 3. FORMAT TANGGAL & CRUD DEVICES
+// 3. CRUD DEVICES, PENCARIAN & HISTORY
 // ==========================================
-
-// Fungsi mengubah YYYY-MM-DD menjadi format: Senin, 21 September 2026
-function formatTanggalIndo(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if(isNaN(d)) return dateStr;
-    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
     if(status === 'On progress') return `<span class="badge badge-progress">${status}</span>`;
@@ -242,24 +239,21 @@ function getStatusBadge(status) {
 }
 
 async function renderDevices() {
-    let list = [];
-    if (!useLocalStorage) {
-        const { data } = await supabaseClient.from('devices').select('*');
-        list = data || [];
-    } else {
-        list = localDevices;
+    const { data: devices, error } = await supabaseClient.from('devices').select('*');
+    if (error) { console.error(error); return; }
+
+    const tbody = document.getElementById('table-device');
+    tbody.innerHTML = '';
+
+    let list = devices || [];
+
+    // Filter berdasarkan Dropdown Status Deploy
+    const selectedStatus = document.getElementById('filter-status-select').value;
+    if (selectedStatus !== 'All') {
+        list = list.filter(d => d.status === selectedStatus);
     }
 
-    // 1. Update Kartu Dashboard sebelum filter diterapkan agar angkanya tetap real
-    updateDashboardStats(list);
-
-    // 2. Filter Status Deploy (Dari Dropdown)
-    const statFilter = document.getElementById('filter-status-select').value;
-    if (statFilter !== 'All') {
-        list = list.filter(d => d.status === statFilter);
-    }
-
-    // 3. Filter Pencarian Multi (Nama, SN, Email)
+    // Filter Pencarian Multi-Kriteria (Nama User, Serial Number, Email)
     const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
     if (searchVal) {
         list = list.filter(d => 
@@ -269,23 +263,17 @@ async function renderDevices() {
         );
     }
 
-    // 4. Sortir & Urutan
+    // Sortir Tanggal Deploy (Awal / Terlama vs Terbaru)
     const sortVal = document.getElementById('sort-date-select').value;
     list.sort((a, b) => {
-        // if newest_update, sort by ID descending (simulating latest added/updated if we don't have updated_at column)
-        if (sortVal === 'newest_update') return b.id - a.id; 
-        
         const dateA = a.tanggal || '';
         const dateB = b.tanggal || '';
-        
-        if (sortVal === 'oldest_deploy') return dateA.localeCompare(dateB);
-        if (sortVal === 'newest_deploy') return dateB.localeCompare(dateA);
-        return 0;
+        if (sortVal === 'oldest') {
+            return dateA.localeCompare(dateB); // Terlama / Awal
+        } else {
+            return dateB.localeCompare(dateA); // Terbaru
+        }
     });
-
-    // Render ke HTML
-    const tbody = document.getElementById('table-device');
-    tbody.innerHTML = '';
 
     list.forEach(d => {
         tbody.innerHTML += `
@@ -296,17 +284,21 @@ async function renderDevices() {
                 <td>${d.alamat || ''}</td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
                 <td>${getStatusBadge(d.status)}</td>
-                <td><div class="history-box">${d.history || '<em>Belum ada update</em>'}</div></td>
+                <td>
+                    <div class="history-text">${d.history || 'Dibuat: -'}</div>
+                    <button class="btn btn-secondary mt-10" style="padding: 2px 6px; font-size: 10px;" onclick="clearHistory(${d.id})">Clear Riwayat</button>
+                </td>
                 <td>
                     <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
-                    <button class="btn btn-danger" style="padding:5px 10px; font-size:11px; margin-top:5px;" onclick="deleteDevice(${d.id})">Hapus</button>
+                    <button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
                 </td>
             </tr>
         `;
     });
+    updateDashboardStats();
 }
 
-function searchDevice() {
+async function searchDevice() {
     renderDevices();
 }
 
@@ -319,67 +311,42 @@ async function saveDevice() {
     const tanggal = document.getElementById('dev-tgl').value;
     const status = document.getElementById('dev-status').value;
 
-    const nowTime = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-
-    let historyLog = '';
+    const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (id) {
-        // MENGEDIT DATA
-        let oldData = null;
-        if (!useLocalStorage) {
-            const { data } = await supabaseClient.from('devices').select('*').eq('id', id).single();
-            oldData = data;
-        } else {
-            oldData = localDevices.find(d => d.id == id);
-        }
-
-        historyLog = oldData.history || '';
+        // Ambil data lama untuk update riwayat real-time
+        const { data: oldData } = await supabaseClient.from('devices').select('history, status').eq('id', id).single();
+        let historyLog = oldData?.history || '';
         
-        // Logika mencatat histori jika ada perubahan Tgl atau Status
-        let changes = [];
-        if (oldData.status !== status) changes.push(`Status: <span>${status}</span>`);
-        if (oldData.tanggal !== tanggal) changes.push(`Tgl Deploy: <span>${formatTanggalIndo(tanggal)}</span>`);
-        
-        if (changes.length > 0) {
-            historyLog = `<div class="time">[${nowTime}]</div> Diupdate: ${changes.join(', ')}<hr style="border:0; border-top:1px solid #333; margin:4px 0;">` + historyLog;
+        if (oldData?.status !== status) {
+            historyLog = `Status diubah ke <strong>${status}</strong> (${nowStr})<br>` + historyLog;
         }
 
-        const updatedRow = { nama, sn, email, alamat, tanggal, status, history: historyLog };
-
-        if (!useLocalStorage) {
-            await supabaseClient.from('devices').update(updatedRow).eq('id', id);
-        } else {
-            const idx = localDevices.findIndex(d => d.id == id);
-            localDevices[idx] = { ...localDevices[idx], ...updatedRow };
-            localStorage.setItem('ap_devices', JSON.stringify(localDevices));
-        }
-
+        await supabaseClient.from('devices').update({
+            nama, sn, email, alamat, tanggal, status, history: historyLog
+        }).eq('id', id);
     } else {
-        // MENAMBAH DATA BARU
-        historyLog = `<div class="time">[${nowTime}]</div> <span>Dibuat</span> oleh ${currentUser.username}`;
-        const newRow = { id: Date.now(), nama, sn, email, alamat, tanggal, status, history: historyLog };
-
-        if (!useLocalStorage) {
-            await supabaseClient.from('devices').insert([newRow]);
-        } else {
-            localDevices.push(newRow);
-            localStorage.setItem('ap_devices', JSON.stringify(localDevices));
-        }
+        // Data Baru
+        const newHistory = `Dibuat pada ${nowStr}`;
+        await supabaseClient.from('devices').insert([{
+            nama, sn, email, alamat, tanggal, status, history: newHistory
+        }]);
     }
     
     closeModal('modal-device');
     renderDevices();
 }
 
-async function editDevice(id) {
-    let data = null;
-    if (!useLocalStorage) {
-        const res = await supabaseClient.from('devices').select('*').eq('id', id).single();
-        data = res.data;
-    } else {
-        data = localDevices.find(d => d.id == id);
+// Fungsi Clear / Reset Riwayat Status Update
+async function clearHistory(id) {
+    if(confirm("Yakin ingin mereset riwayat status update untuk perangkat ini?")) {
+        await supabaseClient.from('devices').update({ history: 'Riwayat telah dibersihkan.' }).eq('id', id);
+        renderDevices();
     }
+}
 
+async function editDevice(id) {
+    const { data } = await supabaseClient.from('devices').select('*').eq('id', id).single();
     if(data) {
         document.getElementById('title-device').innerText = 'Edit Status & Data Deploy';
         document.getElementById('dev-id').value = data.id;
@@ -387,26 +354,88 @@ async function editDevice(id) {
         document.getElementById('dev-sn').value = data.sn;
         document.getElementById('dev-email').value = data.email;
         document.getElementById('dev-alamat').value = data.alamat;
-        document.getElementById('dev-tgl').value = data.tanggal; // Value input type date butuh format YYYY-MM-DD
+        document.getElementById('dev-tgl').value = data.tanggal;
         document.getElementById('dev-status').value = data.status;
         document.getElementById('modal-device').classList.remove('hidden');
     }
 }
 
 async function deleteDevice(id) {
-    if(confirm("Apakah Anda yakin ingin menghapus data device ini?")) {
-        if (!useLocalStorage) {
-            await supabaseClient.from('devices').delete().eq('id', id);
-        } else {
-            localDevices = localDevices.filter(d => d.id != id);
-            localStorage.setItem('ap_devices', JSON.stringify(localDevices));
-        }
+    if(confirm("Apakah Anda yakin ingin menghapus data device ini dari cloud?")) {
+        await supabaseClient.from('devices').delete().eq('id', id);
         renderDevices();
     }
 }
 
 // ==========================================
-// 4. MODALS & EXCEL EXPORT/IMPORT
+// 4. CRUD USERS (SUPABASE)
+// ==========================================
+async function renderUsers() {
+    const { data: users } = await supabaseClient.from('app_users').select('*');
+    const tbody = document.getElementById('table-user');
+    tbody.innerHTML = '';
+    
+    if(!users) return;
+    users.forEach(u => {
+        const roleBadge = u.role === 'Admin' ? `<span class="text-primary font-bold">Admin</span>` : `<span class="text-warning font-bold">Member</span>`;
+        const status2FA = u.is_2fa_setup ? `<span class="text-success">Aktif</span>` : `<span class="text-danger">Belum Setup</span>`;
+        
+        tbody.innerHTML += `
+            <tr>
+                <td>${u.username}</td>
+                <td>${roleBadge}</td>
+                <td>${status2FA}</td>
+                <td>••••••••</td>
+                <td>
+                    <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
+                    ${users.length > 1 ? `<button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteUser(${u.id})">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
+                </td>
+            </tr>
+        `;
+    });
+}
+
+async function saveUser() {
+    const id = document.getElementById('usr-id').value;
+    const user = document.getElementById('usr-name').value;
+    const pass = document.getElementById('usr-pass').value;
+    const role = document.getElementById('usr-role').value;
+
+    if(!user || !pass) return alert("Username & Password harus diisi!");
+
+    const data = { username: user, password: pass, role: role };
+
+    if (id) {
+        await supabaseClient.from('app_users').update(data).eq('id', id);
+    } else {
+        await supabaseClient.from('app_users').insert([{ ...data, is_2fa_setup: false }]);
+    }
+
+    closeModal('modal-user');
+    renderUsers();
+}
+
+async function editUser(id) {
+    const { data } = await supabaseClient.from('app_users').select('*').eq('id', id).single();
+    if(data) {
+        document.getElementById('title-user').innerText = 'Edit Akses User Cloud';
+        document.getElementById('usr-id').value = data.id;
+        document.getElementById('usr-name').value = data.username;
+        document.getElementById('usr-pass').value = data.password;
+        document.getElementById('usr-role').value = data.role;
+        document.getElementById('modal-user').classList.remove('hidden');
+    }
+}
+
+async function deleteUser(id) {
+    if(confirm("Hapus hak akses user ini dari cloud?")) {
+        await supabaseClient.from('app_users').delete().eq('id', id);
+        renderUsers();
+    }
+}
+
+// ==========================================
+// 5. MODALS & EXCEL EXPORT/IMPORT
 // ==========================================
 function openModal(modalId) {
     document.getElementById(modalId).classList.remove('hidden');
@@ -417,7 +446,7 @@ function openModal(modalId) {
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
         document.getElementById('dev-alamat').value = '';
-        document.getElementById('dev-tgl').value = ''; 
+        document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0];
         document.getElementById('dev-status').value = 'Belum di setup';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
@@ -433,13 +462,12 @@ function closeModal(modalId) {
 }
 
 async function exportExcel() {
-    let list = useLocalStorage ? localDevices : (await supabaseClient.from('devices').select('*')).data;
-    if (!list || list.length === 0) return alert("Belum ada data untuk di-export.");
-    
-    const worksheet = XLSX.utils.json_to_sheet(list);
+    const { data: devices } = await supabaseClient.from('devices').select('*');
+    if (!devices || devices.length === 0) return alert("Belum ada data untuk di-export.");
+    const worksheet = XLSX.utils.json_to_sheet(devices);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "DataDeploy");
-    XLSX.writeFile(workbook, "AutoPilot_Data_Deploy.xlsx");
+    XLSX.writeFile(workbook, "AutoPilot_Cloud_Data.xlsx");
 }
 
 async function importExcel(event) {
@@ -450,123 +478,26 @@ async function importExcel(event) {
     reader.onload = async function(e) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, {type: 'array'});
-        const importedData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+        const sheetName = workbook.SheetNames[0];
+        const importedData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
         
         if (importedData.length > 0) {
-            const nowTime = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-            
+            const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
             const mappedData = importedData.map(item => ({
-                id: Date.now() + Math.floor(Math.random() * 10000),
                 nama: item.nama || '',
                 sn: item.sn || '',
                 email: item.email || '',
                 alamat: item.alamat || '',
                 tanggal: item.tanggal || new Date().toISOString().split('T')[0],
                 status: item.status || 'Belum di setup',
-                history: `<div class="time">[${nowTime}]</div> Diimpor dari Excel`
+                history: `Diimpor dari Excel pada ${nowStr}`
             }));
             
-            if (!useLocalStorage) {
-                await supabaseClient.from('devices').insert(mappedData);
-            } else {
-                localDevices = [...localDevices, ...mappedData];
-                localStorage.setItem('ap_devices', JSON.stringify(localDevices));
-            }
-
+            await supabaseClient.from('devices').insert(mappedData);
             renderDevices();
-            alert("Data Excel berhasil di-import!");
+            alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
     };
     reader.readAsArrayBuffer(file);
     event.target.value = "";
-}
-
-// ==========================================
-// 5. CRUD USERS / AKUN (HANYA ADMIN)
-// ==========================================
-async function renderUsers() {
-    let list = useLocalStorage ? localUsers : (await supabaseClient.from('app_users').select('*')).data;
-    const tbody = document.getElementById('table-user');
-    tbody.innerHTML = '';
-    
-    if(!list) return;
-    list.forEach(u => {
-        const roleBadge = u.role === 'Admin' ? `<span class="text-primary font-bold">Admin</span>` : `<span class="text-warning font-bold">Member</span>`;
-        const status2FA = u.is_2fa_setup ? `<span class="text-success">Aktif</span>` : `<span class="text-danger">Belum Setup</span>`;
-        
-        tbody.innerHTML += `
-            <tr>
-                <td>${u.username}</td>
-                <td>${roleBadge}</td>
-                <td>${status2FA}</td>
-                <td>••••••••</td>
-                <td>
-                    <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
-                    ${list.length > 1 ? `<button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteUser(${u.id})">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
-                </td>
-            </tr>
-        `;
-    });
-}
-
-async function saveUser() {
-    const id = document.getElementById('usr-id').value;
-    const user = document.getElementById('usr-name').value;
-    const pass = document.getElementById('usr-pass').value;
-    const role = document.getElementById('usr-role').value;
-
-    if(!user || !pass) return alert("Username & Password harus diisi!");
-
-    const dataObj = { username: user, password: pass, role: role };
-
-    if (id) {
-        if (!useLocalStorage) {
-            await supabaseClient.from('app_users').update(dataObj).eq('id', id);
-        } else {
-            const idx = localUsers.findIndex(u => u.id == id);
-            localUsers[idx] = { ...localUsers[idx], ...dataObj };
-        }
-    } else {
-        if (!useLocalStorage) {
-            await supabaseClient.from('app_users').insert([{ ...dataObj, is_2fa_setup: false }]);
-        } else {
-            localUsers.push({ id: Date.now(), ...dataObj, is_2fa_setup: false });
-        }
-    }
-
-    if (useLocalStorage) localStorage.setItem('ap_users', JSON.stringify(localUsers));
-    
-    closeModal('modal-user');
-    renderUsers();
-}
-
-async function editUser(id) {
-    let data = null;
-    if (!useLocalStorage) {
-        const res = await supabaseClient.from('app_users').select('*').eq('id', id).single();
-        data = res.data;
-    } else {
-        data = localUsers.find(u => u.id == id);
-    }
-
-    if(data) {
-        document.getElementById('title-user').innerText = 'Edit Akses User';
-        document.getElementById('usr-id').value = data.id;
-        document.getElementById('usr-name').value = data.username;
-        document.getElementById('usr-pass').value = data.password;
-        document.getElementById('usr-role').value = data.role;
-        document.getElementById('modal-user').classList.remove('hidden');
-    }
-}
-
-async function deleteUser(id) {
-    if(confirm("Hapus hak akses user ini?")) {
-        if (!useLocalStorage) {
-            await supabaseClient.from('app_users').delete().eq('id', id);
-        } else {
-            localUsers = localUsers.filter(u => u.id != id);
-            localStorage.setItem('ap_users', JSON.stringify(localUsers));
-        }
-        renderUsers();
-    }
 }
