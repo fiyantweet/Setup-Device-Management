@@ -31,10 +31,17 @@ body { background-color: var(--bg-main); color: var(--text-main); font-size: 14p
 .text-black { color: var(--text-black) !important; font-weight: bold;}
 .link { color: var(--primary); text-decoration: none; font-size: 12px; }
 .link:hover { text-decoration: underline; }
+
+/* Hidden Demo Trigger */
 #hidden-demo-trigger { position: absolute; top: 0; right: 0; width: 40px; height: 40px; cursor: pointer; background: transparent; z-index: 10; }
+
+/* Form Elements */
 .input-form { width: 100%; padding: 12px; margin-bottom: 15px; background-color: #000; border: 1px solid var(--border); color: var(--text-main); border-radius: 6px; outline: none; }
 .input-form:focus { border-color: var(--primary); box-shadow: 0 0 5px rgba(0, 229, 255, 0.3); }
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;}
+
+/* Buttons */
 .btn { border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.3s; display: inline-block; text-align: center; }
 .btn-primary { background-color: var(--primary); color: #000; }
 .btn-primary:hover { background-color: var(--primary-hover); }
@@ -42,10 +49,14 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .btn-warning { background-color: var(--warning); color: #000; }
 .btn-secondary { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
 .btn-secondary:hover { background-color: var(--bg-hover); }
+
+/* Tombol Export / Import Cerah */
 .btn-export { background-color: var(--btn-export); color: #000; box-shadow: 0 0 10px rgba(57, 255, 20, 0.3); text-transform: uppercase; }
 .btn-export:hover { background-color: #32e612; }
 .btn-import { background-color: var(--btn-import); color: #000; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); text-transform: uppercase; }
 .btn-import:hover { background-color: #e6c200; }
+
+/* Card & Navbar */
 .card { background-color: var(--bg-card); padding: 40px; border-radius: 10px; width: 400px; border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
 .navbar { display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-card); padding: 15px 30px; border-bottom: 1px solid var(--border); }
 .logo { font-size: 20px; font-weight: 800; letter-spacing: 1px; display: flex; align-items: center; gap: 10px;}
@@ -54,27 +65,37 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .tab-btn { background: none; border: none; color: var(--text-muted); font-weight: 600; cursor: pointer; padding: 8px 12px; font-size: 14px; transition: 0.3s;}
 .tab-btn:hover { color: var(--text-main); }
 .tab-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
-.container { max-width: 1350px; margin: 25px auto; padding: 0 20px; }
+
+/* App Container */
+.container { max-width: 1400px; margin: 25px auto; padding: 0 20px; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
+
+/* Dashboard Stats (Clickable) */
 .dashboard-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 30px; }
 .stat-card { background-color: var(--bg-card); padding: 25px; border-radius: 8px; border: 1px solid var(--border); border-top: 4px solid #444; text-align: center; transition: 0.2s; }
-.stat-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+.stat-clickable:hover { border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,229,255,0.2); }
 .stat-card h3 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; font-weight: bold; }
 .stat-card h2 { font-size: 34px; font-weight: bold; line-height: 1;}
+
 .box-total { border-top-color: #fff; } .box-total h2 { color: #fff; }
 .box-belum { border-top-color: var(--danger); } .box-belum h2 { color: var(--danger); }
 .box-progress { border-top-color: var(--warning); } .box-progress h2 { color: var(--warning); }
 .box-setup { border-top-color: var(--primary); } .box-setup h2 { color: var(--primary); }
 .box-deploy { border-top-color: var(--success); } .box-deploy h2 { color: var(--success); }
+
+/* Toolbar & Table */
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;}
 .search-box { display: flex; gap: 10px; align-items: center; }
 .action-box { display: flex; gap: 10px; }
+
 .table-wrapper { background-color: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); }
 th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; background-color: #080808; letter-spacing: 0.5px;}
 tr:hover { background-color: var(--bg-hover); }
+
+/* Badges Status */
 .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; color: #000; display: inline-block;}
 .badge-belum { background-color: var(--danger); color: #fff;}
 .badge-progress { background-color: var(--warning); }
@@ -83,6 +104,8 @@ tr:hover { background-color: var(--bg-hover); }
 .history-text { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 .qr-box { background: #fff; padding: 15px; border-radius: 8px;}
 #qrcode img { display: block; margin: 0 auto; }
+
+/* Modals */
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 999; backdrop-filter: blur(4px); }
 .modal-box { background-color: var(--bg-card); width: 450px; padding: 30px; border-radius: 10px; border: 1px solid var(--border); max-height: 90vh; overflow-y: auto; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }

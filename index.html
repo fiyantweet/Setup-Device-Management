@@ -20,6 +20,7 @@
         
         <!-- Form Login -->
         <div id="login-card" class="card relative">
+            <!-- Hidden Demo Area -->
             <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Hidden Demo Area"></div>
 
             <h2>IT <span class="text-primary">AutoPilot</span></h2>
@@ -31,7 +32,8 @@
             <label>Password</label>
             <input type="password" id="login-pass" class="input-form" placeholder="Masukkan Password" required>
             
-            <button type="button" class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
+            <!-- Tombol Login Berfungsi -->
+            <button class="btn btn-primary w-100 mt-10" onclick="handleLogin()">LOGIN SISTEM</button>
             
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('reset')">Lupa Password? (Reset Tanpa Email)</a>
@@ -49,7 +51,7 @@
             </div>
 
             <input type="text" id="mfa-code" class="input-form text-center" placeholder="X X X X X X" maxlength="6" autocomplete="off">
-            <button type="button" class="btn btn-primary w-100 mt-10" onclick="handle2FA()">VERIFIKASI & MASUK</button>
+            <button class="btn btn-primary w-100 mt-10" onclick="handle2FA()">VERIFIKASI & MASUK</button>
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('login')">Batal & Kembali</a>
             </div>
@@ -66,7 +68,7 @@
             <label>Password Baru</label>
             <input type="password" id="reset-pass" class="input-form" placeholder="Ketik Password Baru">
             
-            <button type="button" class="btn btn-warning w-100 text-black mt-10" onclick="handleReset()">SIMPAN PASSWORD</button>
+            <button class="btn btn-warning w-100 text-black mt-10" onclick="handleReset()">SIMPAN PASSWORD</button>
             <div class="mt-15">
                 <a href="#" class="link" onclick="toggleAuth('login')">Kembali ke Login</a>
             </div>
@@ -80,57 +82,61 @@
         <nav class="navbar">
             <div class="logo">AutoPilot <span>Cloud</span> <small id="login-role-badge" class="badge badge-setup"></small></div>
             <div class="nav-tabs">
-                <button type="button" class="tab-btn active" onclick="switchTab('device')">Deploy Device</button>
-                <button type="button" class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Pengaturan User</button>
-                <button type="button" class="btn btn-danger" onclick="logout()">Logout</button>
+                <button class="tab-btn active" onclick="switchTab('device')">Deploy Device</button>
+                <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Pengaturan User</button>
+                <button class="btn btn-danger" onclick="logout()">Logout</button>
             </div>
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS (Klik untuk Filter Status) -->
+            <!-- DASHBOARD PROGRESS STATISTIK (Klik untuk Filter) -->
             <div class="dashboard-stats">
-                <div class="stat-card box-total" onclick="filterByStatus('All')" style="cursor:pointer;" title="Klik tampilkan semua">
+                <div class="stat-card box-total stat-clickable" onclick="setStatFilter('All')" title="Tampilkan Semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
-                <div class="stat-card box-belum" onclick="filterByStatus('Belum di setup')" style="cursor:pointer;" title="Klik filter Belum di setup">
+                <div class="stat-card box-belum stat-clickable" onclick="setStatFilter('Belum di setup')" title="Filter Belum di setup">
                     <h3>Belum di setup</h3><h2 id="stat-belum">0</h2>
                 </div>
-                <div class="stat-card box-progress" onclick="filterByStatus('On progress')" style="cursor:pointer;" title="Klik filter On Progress">
+                <div class="stat-card box-progress stat-clickable" onclick="setStatFilter('On progress')" title="Filter On Progress">
                     <h3>On Progress</h3><h2 id="stat-progress">0</h2>
                 </div>
-                <div class="stat-card box-setup" onclick="filterByStatus('Done setup')" style="cursor:pointer;" title="Klik filter Done Setup">
-                    <h3>Done Setup</h3><h2 id="stat-donesetup">0</h2>
+                <div class="stat-card box-setup stat-clickable" onclick="setStatFilter('Done setup')" title="Filter Done Setup">
+                    <h3>Done Setup</h3><h2 id="stat-setup">0</h2>
                 </div>
-                <div class="stat-card box-deploy" onclick="filterByStatus('Done deploy user')" style="cursor:pointer;" title="Klik filter Done Deploy">
-                    <h3>Done Deploy User</h3><h2 id="stat-donedeploy">0</h2>
+                <div class="stat-card box-deploy stat-clickable" onclick="setStatFilter('Done deploy user')" title="Filter Done Deploy User">
+                    <h3>Done Deploy User</h3><h2 id="stat-deploy">0</h2>
                 </div>
             </div>
 
-            <!-- TAB 1: DEVICE -->
+            <!-- TAB 1: DEVICE DEPLOY -->
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
-                    <div class="search-box" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <!-- Pencarian Nama User, Serial Number, & Alamat Lengkap -->
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, Alamat..." style="margin: 0; width: 240px;" oninput="renderDevices()">
+                    <!-- Area Pencarian & Filter -->
+                    <div class="search-box">
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, Email..." style="margin: 0; width: 220px;">
                         
-                        <!-- Dropdown Status Deploy -->
-                        <select id="filter-status-dropdown" class="input-form" style="margin: 0; width: 170px;" onchange="onStatusDropdownChange()">
-                            <option value="All">Semua Status</option>
+                        <!-- Dropdown Filter Status -->
+                        <select id="filter-status-select" class="input-form" style="margin: 0; width: 160px;" onchange="renderDevices()">
+                            <option value="All">Status: Semua</option>
                             <option value="Belum di setup">Belum di setup</option>
                             <option value="On progress">On progress</option>
                             <option value="Done setup">Done setup</option>
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
 
-                        <!-- Dropdown Tgl Deploy (Sort Awal/Terbaru) -->
-                        <select id="sort-select" class="input-form" style="margin: 0; width: 180px;" onchange="renderDevices()">
-                            <option value="oldest">Tgl Deploy: Awal (Terlama)</option>
-                            <option value="newest">Tgl Deploy: Terbaru</option>
+                        <!-- Dropdown Sortir Tanggal -->
+                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
+                            <option value="newest">Tgl: Terbaru</option>
+                            <option value="oldest">Tgl: Terlama</option>
                         </select>
+
+                        <!-- Tombol Cari -->
+                        <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
                     </div>
+                    
                     <div class="action-box">
-                        <button type="button" class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
-                        <button type="button" class="btn btn-export" onclick="exportExcel()">Export Excel</button>
+                        <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
+                        <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
                         <label for="import-file" class="btn btn-import" style="cursor: pointer;">Import Excel</label>
                         <input type="file" id="import-file" accept=".xlsx, .xls" hidden onchange="importExcel(event)">
                     </div>
@@ -144,7 +150,7 @@
                                 <th>Serial Number</th>
                                 <th>Email</th>
                                 <th>Alamat Lengkap</th>
-                                <th>Tgl Deploy</th>
+                                <th>Tgl Deploy (Hari, Bulan, Tahun)</th>
                                 <th>Status Deploy</th>
                                 <th>History / Riwayat Status</th>
                                 <th style="width: 120px;">Aksi</th>
@@ -159,7 +165,7 @@
             <div id="tab-admin" class="tab-content">
                 <div class="toolbar">
                     <h3 class="text-primary">Manajemen Hak Akses Login Cloud</h3>
-                    <button type="button" class="btn btn-primary" onclick="openModal('modal-user')">+ Tambah User Akses</button>
+                    <button class="btn btn-primary" onclick="openModal('modal-user')">+ Tambah User Akses</button>
                 </div>
                 <div class="table-wrapper">
                     <table>
@@ -180,6 +186,7 @@
     </div>
 
     <!-- MODALS -->
+    <!-- Modal Input Device -->
     <div id="modal-device" class="modal hidden">
         <div class="modal-box">
             <h2 id="title-device" class="text-primary mb-20">Form Deploy Device</h2>
@@ -194,10 +201,10 @@
             <label>Email User</label>
             <input type="email" id="dev-email" class="input-form" placeholder="email@domain.com">
             
-            <label>Alamat Lengkap</label>
+            <label>Alamat (Manual Input)</label>
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Pilih Kalender)</label>
+            <label>Tanggal Deploy (Klik Kalender)</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
@@ -209,12 +216,13 @@
             </select>
             
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-device')">Batal</button>
-                <button type="button" class="btn btn-primary" onclick="saveDevice()">Simpan Data</button>
+                <button class="btn btn-secondary" onclick="closeModal('modal-device')">Batal</button>
+                <button class="btn btn-primary" onclick="saveDevice()">Simpan Data</button>
             </div>
         </div>
     </div>
 
+    <!-- Modal Input User -->
     <div id="modal-user" class="modal hidden">
         <div class="modal-box">
             <h2 id="title-user" class="text-primary mb-20">Form Akun Login</h2>
@@ -233,8 +241,8 @@
             </select>
             
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('modal-user')">Batal</button>
-                <button type="button" class="btn btn-primary" onclick="saveUser()">Simpan Akun</button>
+                <button class="btn btn-secondary" onclick="closeModal('modal-user')">Batal</button>
+                <button class="btn btn-primary" onclick="saveUser()">Simpan Akun</button>
             </div>
         </div>
     </div>
