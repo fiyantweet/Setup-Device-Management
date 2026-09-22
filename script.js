@@ -370,7 +370,7 @@ async function deleteDevice(id) {
 }
 
 // ==========================================
-// 4. CRUD USERS (SUPABASE)
+// 4. CRUD USERS (SUPABASE) & RESET 2FA
 // ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
@@ -389,12 +389,25 @@ async function renderUsers() {
                 <td>${status2FA}</td>
                 <td>••••••••</td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 10px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
-                    ${users.length > 1 ? `<button class="btn btn-danger" style="padding:5px 10px; font-size:11px;" onclick="deleteUser(${u.id})">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
+                    <button class="btn btn-warning" style="padding:5px 8px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
+                    <button class="btn btn-info" style="padding:5px 8px; font-size:11px;" onclick="resetUser2FA(${u.id})" title="Reset Status 2FA User">Reset 2FA</button>
+                    ${users.length > 1 ? `<button class="btn btn-danger" style="padding:5px 8px; font-size:11px;" onclick="deleteUser(${u.id})">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
                 </td>
             </tr>
         `;
     });
+}
+
+async function resetUser2FA(id) {
+    if(confirm("Apakah Anda yakin ingin mereset 2FA user ini? User tersebut harus melakukan scan barcode ulang pada saat login berikutnya.")) {
+        const { error } = await supabaseClient.from('app_users').update({ is_2fa_setup: false }).eq('id', id);
+        if(!error) {
+            alert("Status 2FA berhasil direset!");
+            renderUsers();
+        } else {
+            alert("Gagal reset 2FA: " + error.message);
+        }
+    }
 }
 
 async function saveUser() {
