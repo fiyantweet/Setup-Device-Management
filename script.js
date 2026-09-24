@@ -225,7 +225,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES, PENCARIAN & ANTI-DUPLIKASI
+// 3. CRUD DEVICES, DUPLICATE DETECTION & CONDITIONAL FORMATTING
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -243,6 +243,15 @@ async function renderDevices() {
     tbody.innerHTML = '';
 
     let list = devices || [];
+
+    // Deteksi Duplicate Values untuk Highlight Rules
+    const snCounts = {};
+    list.forEach(d => {
+        if (d.sn) {
+            const cleanSN = d.sn.trim().toLowerCase();
+            snCounts[cleanSN] = (snCounts[cleanSN] || 0) + 1;
+        }
+    });
 
     const selectedStatus = document.getElementById('filter-status-select').value;
     if (selectedStatus !== 'All') {
@@ -270,10 +279,15 @@ async function renderDevices() {
     });
 
     list.forEach(d => {
+        // Pengecekan Duplicate Values (Highlight Cells Rules)
+        const isDuplicate = d.sn && snCounts[d.sn.trim().toLowerCase()] > 1;
+        const snClass = isDuplicate ? 'highlight-duplicate' : '';
+        const duplicateWarningTag = isDuplicate ? ' <span style="color:#ff3366; font-size:10px; font-weight:bold;">[DUPLICATE!]</span>' : '';
+
         tbody.innerHTML += `
             <tr>
                 <td>${d.nama || ''}</td>
-                <td>${d.sn || ''}</td>
+                <td><span class="${snClass}">${d.sn || ''}</span>${duplicateWarningTag}</td>
                 <td>${d.email || ''}</td>
                 <td>${d.alamat || ''}</td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
@@ -307,30 +321,25 @@ async function saveDevice() {
     const tanggal = document.getElementById('dev-tgl').value;
     const status = document.getElementById('dev-status').value;
 
-    if (!sn) {
-        alert("Serial Number (SN) wajib diisi!");
+    if (!nama || !sn) {
+        alert("Nama User dan Serial Number wajib diisi!");
         return;
     }
 
     // ==========================================
-    // FITUR ANTI-DUPLIKASI DEVICE (BERDASARKAN SERIAL NUMBER / SN)
+    // VALIDASI DUPLICATE VALUES (Pencegahan Data Sama)
     // ==========================================
-    let checkQuery = supabaseClient.from('devices').select('id, sn').eq('sn', sn);
-    if (id) {
-        checkQuery = checkQuery.neq('id', id); // Jika sedang edit, abaikan ID diri sendiri
-    }
-    const { data: duplicateCheck, error: checkError } = await checkQuery;
-    
-    if (checkError) {
-        alert("Gagal memeriksa duplikasi data: " + checkError.message);
-        return;
-    }
+    const { data: allDevices } = await supabaseClient.from('devices').select('*');
+    const duplicateFound = allDevices.some(d => d.sn.toLowerCase() === sn.toLowerCase() && d.id != id);
 
-    if (duplicateCheck && duplicateCheck.length > 0) {
-        alert(`Gagal Menyimpan: Serial Number (SN) "${sn}" sudah terdaftar di sistem! Data device tidak boleh duplikat.`);
+    if (duplicateFound) {
+        alert(`Peringatan (Duplicate Values): Serial Number "${sn}" sudah terdaftar di sistem! Data duplikat tidak diizinkan.`);
+        document.getElementById('dev-sn').focus();
+        document.getElementById('dev-sn').style.borderColor = 'var(--danger)';
         return;
+    } else {
+        document.getElementById('dev-sn').style.borderColor = 'var(--border)';
     }
-    // ==========================================
 
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -368,6 +377,7 @@ async function editDevice(id) {
         document.getElementById('dev-alamat').value = data.alamat;
         document.getElementById('dev-tgl').value = data.tanggal;
         document.getElementById('dev-status').value = data.status;
+        document.getElementById('dev-sn').style.borderColor = 'var(--border)';
         document.getElementById('modal-device').classList.remove('hidden');
     }
 }
@@ -388,7 +398,7 @@ async function deleteDevice(id) {
 }
 
 // ==========================================
-// 4. CRUD USERS & ANTI-DUPLIKASI USERNAME
+// 4. CRUD USERS (SUPABASE) & RESET 2FA
 // ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
@@ -436,21 +446,6 @@ async function saveUser() {
 
     if(!user || !pass) return alert("Username & Password harus diisi!");
 
-    // ==========================================
-    // FITUR ANTI-DUPLIKASI USERNAME
-    // ==========================================
-    let checkUserQuery = supabaseClient.from('app_users').select('id, username').eq('username', user);
-    if (id) {
-        checkUserQuery = checkUserQuery.neq('id', id);
-    }
-    const { data: duplicateUserCheck } = await checkUserQuery;
-
-    if (duplicateUserCheck && duplicateUserCheck.length > 0) {
-        alert(`Gagal Menyimpan: Username "${user}" sudah terdaftar! Gunakan username lain.`);
-        return;
-    }
-    // ==========================================
-
     const data = { username: user, password: pass, role: role };
 
     if (id) {
@@ -483,7 +478,7 @@ async function deleteUser(id) {
 }
 
 // ==========================================
-// 5. MODALS, EXCEL EXPORT & IMPORT (ANTI-DUPLIKASI EXCEL)
+// 5. MODALS & EXCEL EXPORT/IMPORT
 // ==========================================
 function openModal(modalId) {
     document.getElementById(modalId).classList.remove('hidden');
@@ -496,6 +491,7 @@ function openModal(modalId) {
         document.getElementById('dev-alamat').value = '';
         document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0];
         document.getElementById('dev-status').value = 'Belum di setup';
+        document.getElementById('dev-sn').style.borderColor = 'var(--border)';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
         document.getElementById('usr-id').value = '';
@@ -530,40 +526,20 @@ async function importExcel(event) {
         const importedData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
         
         if (importedData.length > 0) {
-            // Ambil daftar SN yang sudah ada di database untuk mencegah duplikasi saat import excel
-            const { data: existingDevices } = await supabaseClient.from('devices').select('sn');
-            const existingSNs = new Set((existingDevices || []).map(d => d.sn ? d.sn.trim().toLowerCase() : ''));
-
             const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-            const newRowsToInsert = [];
-            let duplicateCount = 0;
-
-            importedData.forEach(item => {
-                const sn = (item.sn || '').toString().trim();
-                if (!sn) return; // Lewati jika tidak ada SN
-
-                if (existingSNs.has(sn.toLowerCase())) {
-                    duplicateCount++; // SN sudah ada, lewati
-                } else {
-                    existingSNs.add(sn.toLowerCase()); // Masukkan ke set agar tidak duplikat di file excel itu sendiri
-                    newRowsToInsert.push({
-                        nama: item.nama || '',
-                        sn: sn,
-                        email: item.email || '',
-                        alamat: item.alamat || '',
-                        tanggal: item.tanggal || new Date().toISOString().split('T')[0],
-                        status: item.status || 'Belum di setup',
-                        history: `• Diimpor dari Excel pada ${nowStr}`
-                    });
-                }
-            });
+            const mappedData = importedData.map(item => ({
+                nama: item.nama || '',
+                sn: item.sn || '',
+                email: item.email || '',
+                alamat: item.alamat || '',
+                tanggal: item.tanggal || new Date().toISOString().split('T')[0],
+                status: item.status || 'Belum di setup',
+                history: `• Diimpor dari Excel pada ${nowStr}`
+            }));
             
-            if (newRowsToInsert.length > 0) {
-                await supabaseClient.from('devices').insert(newRowsToInsert);
-            }
-            
+            await supabaseClient.from('devices').insert(mappedData);
             renderDevices();
-            alert(`Impor Selesai!\n- Berhasil memasukkan: ${newRowsToInsert.length} data baru\n- Dilewati (Duplikat SN): ${duplicateCount} data`);
+            alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
     };
     reader.readAsArrayBuffer(file);
