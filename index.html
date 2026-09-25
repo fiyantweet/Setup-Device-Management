@@ -120,17 +120,15 @@
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
 
-                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
-                            <option value="oldest">Tgl Deploy: Awal</option>
-                            <option value="newest">Tgl Deploy: Terbaru</option>
+                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 140px;" onchange="renderDevices()">
+                            <option value="oldest">Tgl: Awal</option>
+                            <option value="newest">Tgl: Terbaru</option>
                         </select>
 
                         <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
                     </div>
-                    
-                    <!-- Action Box dengan Tombol Riwayat Aktifitas di sebelah kiri + Tambah Device -->
                     <div class="action-box">
-                        <button class="btn btn-info" onclick="openActivityModal()">Riwayat Aktifitas</button>
+                        <button class="btn btn-warning" onclick="openActivityModal()">Riwayat Aktivitas</button>
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
                         <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
                         <label for="import-file" class="btn btn-import" style="cursor: pointer;">Import Excel</label>
@@ -145,11 +143,11 @@
                                 <th>Nama User</th>
                                 <th>Serial Number</th>
                                 <th>Email</th>
+                                <th>Team</th>
                                 <th>Alamat Lengkap</th>
-                                <th>Team Deploy</th>
                                 <th>Tgl Deploy</th>
                                 <th>Status Deploy</th>
-                                <th style="width: 140px;">Aksi</th>
+                                <th style="width: 130px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="table-device"></tbody>
@@ -181,34 +179,7 @@
         </div>
     </div>
 
-    <!-- MODAL: RIWAYAT AKTIFITAS (Login & Status Updates) -->
-    <div id="modal-activity" class="modal hidden">
-        <div class="modal-box" style="width: 700px;">
-            <h2 class="text-primary mb-20">Log Riwayat Aktifitas & Login</h2>
-            <p class="text-muted" style="font-size: 11px; margin-bottom: 15px;">Catatan login user dan perubahan status deploy secara real-time.</p>
-            
-            <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Waktu</th>
-                            <th>Username</th>
-                            <th>Aktivitas / Riwayat</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-activity-logs">
-                        <tr><td colspan="3" class="text-center text-muted">Memuat log...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('modal-activity')">Tutup</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: DEVICE -->
+    <!-- MODALS -->
     <div id="modal-device" class="modal hidden">
         <div class="modal-box">
             <h2 id="title-device" class="text-primary mb-20">Form Deploy Device</h2>
@@ -217,23 +188,24 @@
             <label>Nama User (Penerima)</label>
             <input type="text" id="dev-nama" class="input-form" placeholder="Nama Karyawan/User">
             
-            <label>Serial Number (Validasi Duplikat)</label>
+            <label>Serial Number (Cek Duplikasi)</label>
             <input type="text" id="dev-sn" class="input-form" placeholder="SN Device / Laptop">
             
-            <label>Email User</label>
+            <label>Email User (Cek Duplikasi)</label>
             <input type="email" id="dev-email" class="input-form" placeholder="email@domain.com">
-            
-            <label>Alamat (Manual Input)</label>
-            <textarea id="dev-alamat" class="input-form" rows="2" placeholder="Input alamat pengiriman lengkap..."></textarea>
-            
+
             <label>Team Deploy</label>
             <select id="dev-team" class="input-form">
-                <option value="Afin">Afin</option>
-                <option value="Bayu">Bayu</option>
-                <option value="Raffael">Raffael</option>
+                <option value="-">-</option>
+                <option value="afin">Afin</option>
+                <option value="bayu">Bayu</option>
+                <option value="raffael">Raffael</option>
             </select>
-
-            <label>Tanggal Deploy (Kalender)</label>
+            
+            <label>Alamat (Manual Input)</label>
+            <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
+            
+            <label>Tanggal Deploy</label>
             <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
@@ -251,7 +223,6 @@
         </div>
     </div>
 
-    <!-- MODAL: USER -->
     <div id="modal-user" class="modal hidden">
         <div class="modal-box">
             <h2 id="title-user" class="text-primary mb-20">Form Akun Login</h2>
@@ -272,6 +243,52 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('modal-user')">Batal</button>
                 <button class="btn btn-primary" onclick="saveUser()">Simpan Akun</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL RIWAYAT AKTIVITAS -->
+    <div id="modal-activity" class="modal hidden">
+        <div class="modal-box" style="width: 750px;">
+            <h2 class="text-primary mb-20">Pusat Riwayat Aktivitas & Status</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button class="btn btn-primary" id="btn-act-dev" onclick="switchActivityTab('device')">Riwayat Status Device</button>
+                <button class="btn btn-secondary" id="btn-act-login" onclick="switchActivityTab('login')">Riwayat Login & User</button>
+            </div>
+
+            <!-- Tab 1: Riwayat Status Device -->
+            <div id="act-tab-device" class="act-tab-content">
+                <div class="table-wrapper" style="max-height: 380px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nama User & SN</th>
+                                <th>Riwayat Perubahan Status (Realtime)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-activity-device"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 2: Riwayat Login & Aktivitas User -->
+            <div id="act-tab-login" class="act-tab-content hidden">
+                <div class="table-wrapper" style="max-height: 380px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">Waktu</th>
+                                <th style="width: 120px;">Username</th>
+                                <th>Aktivitas Web</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-activity-login"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('modal-activity')">Tutup</button>
             </div>
         </div>
     </div>

@@ -13,7 +13,7 @@ try {
 
 let currentUser = null;
 
-// Cek Sesi Persisten saat Browser Dimuat / Di-refresh
+// Cek Sesi Persisten saat Browser Dimuat
 window.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('autopilot_current_user');
     if (savedUser) {
@@ -22,7 +22,6 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('app-section').classList.remove('hidden');
         initApp();
     }
-
     setupEnterListeners();
 });
 
@@ -40,6 +39,17 @@ function setupEnterListeners() {
     if(rUser) rUser.addEventListener('keypress', e => { if(e.key === 'Enter') rPass.focus(); });
     if(rPass) rPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
     if(sInput) sInput.addEventListener('keypress', e => { if(e.key === 'Enter') searchDevice(); });
+}
+
+// Fungsi Pencatatan Log Aktivitas Web
+async function logActivity(username, actionText) {
+    if (!supabaseClient) return;
+    const timeStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
+    await supabaseClient.from('activity_logs').insert([{
+        username: username || 'System',
+        action: actionText,
+        timestamp: timeStr
+    }]);
 }
 
 // ==========================================
@@ -86,6 +96,7 @@ async function handleLogin() {
 
         if (!users || users.length === 0) {
             alert("Login Gagal: Username atau Password salah!");
+            await logActivity(user, "Gagal login (kredensial salah)");
             return;
         }
 
@@ -130,15 +141,8 @@ async function handle2FA() {
             currentUser.is_2fa_setup = true;
         }
 
-        // Simpan sesi ke localStorage
         localStorage.setItem('autopilot_current_user', JSON.stringify(currentUser));
-
-        // Catat Log Login ke Supabase activity_logs
-        const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-        await supabaseClient.from('activity_logs').insert([{
-            username: currentUser.username,
-            activity: `Login Berhasil ke Sistem Cloud (${nowStr})`
-        }]);
+        await logActivity(currentUser.username, "Berhasil Login ke sistem (2FA terverifikasi)");
 
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
@@ -164,20 +168,15 @@ async function handleReset() {
         alert("Gagal Reset: Username tidak ditemukan di database.");
     } else {
         alert("Reset Password Berhasil! Silakan login kembali.");
+        await logActivity(user, "Melakukan Reset Password akun");
         toggleAuth('login');
     }
 }
 
 function logout() {
-    if (currentUser) {
-        // Catat log aktivitas logout / keluar
-        const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-        supabaseClient.from('activity_logs').insert([{
-            username: currentUser.username,
-            activity: `Logout dari sistem (${nowStr})`
-        }]).then(() => {});
+    if(currentUser) {
+        logActivity(currentUser.username, "Logout dari sistem");
     }
-
     currentUser = null;
     localStorage.removeItem('autopilot_current_user');
     document.getElementById('app-section').classList.add('hidden');
@@ -242,7 +241,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES, DUPLICATE CHECK & LOGS
+// 3. CRUD DEVICES, VALIDASI DUPLIKASI & HISTORY
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -260,15 +259,6 @@ async function renderDevices() {
     tbody.innerHTML = '';
 
     let list = devices || [];
-
-    // Deteksi Duplicate SN (Conditional Formatting Highlight)
-    const snCounts = {};
-    list.forEach(d => {
-        const snClean = (d.sn || '').trim().toLowerCase();
-        if (snClean) {
-            snCounts[snClean] = (snCounts[snClean] || 0) + 1;
-        }
-    });
 
     const selectedStatus = document.getElementById('filter-status-select').value;
     if (selectedStatus !== 'All') {
@@ -296,23 +286,19 @@ async function renderDevices() {
     });
 
     list.forEach(d => {
-        const snClean = (d.sn || '').trim().toLowerCase();
-        const isDuplicate = snClean && snCounts[snClean] > 1;
-        const rowClass = isDuplicate ? 'duplicate-row' : '';
-        const duplicateBadge = isDuplicate ? ` <span style="color:var(--danger); font-size:10px; font-weight:bold;">[DUPLIKAT SN]</span>` : '';
-
         tbody.innerHTML += `
-            <tr class="${rowClass}">
+            <tr>
                 <td>${d.nama || ''}</td>
-                <td>${d.sn || ''}${duplicateBadge}</td>
+                <td><strong>${d.sn || ''}</strong></td>
                 <td>${d.email || ''}</td>
+                <td><span class="badge badge-setup" style="background:#222; color:var(--primary);">${d.team || '-'}</span></td>
                 <td>${d.alamat || ''}</td>
-                <td><span class="badge" style="background:#222; color:var(--primary); border:1px solid var(--border);">${d.team || '-'}</span></td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
                 <td>${getStatusBadge(d.status)}</td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 8px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
-                    <button class="btn btn-danger" style="padding:5px 8px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
+                    <button class="btn btn-warning" style="padding:5px 6px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
+                    <button class="btn btn-clear" style="padding:5px 6px; font-size:11px;" onclick="clearHistory(${d.id})" title="Reset Riwayat">Clr</button>
+                    <button class="btn btn-danger" style="padding:5px 6px; font-size:11px;" onclick="deleteDevice(${d.id})">Del</button>
                 </td>
             </tr>
         `;
@@ -329,44 +315,55 @@ async function saveDevice() {
     const nama = document.getElementById('dev-nama').value.trim();
     const sn = document.getElementById('dev-sn').value.trim();
     const email = document.getElementById('dev-email').value.trim();
-    const alamat = document.getElementById('dev-alamat').value.trim();
     const team = document.getElementById('dev-team').value;
+    const alamat = document.getElementById('dev-alamat').value.trim();
     const tanggal = document.getElementById('dev-tgl').value;
     const status = document.getElementById('dev-status').value;
 
-    if (!nama || !sn) {
-        alert("Nama User dan Serial Number (SN) wajib diisi!");
+    if (!nama || !sn || !email) {
+        alert("Nama User, Serial Number, dan Email wajib diisi!");
+        return;
+    }
+
+    // Conditional Formatting / Duplicate Values Check
+    const { data: allDevices } = await supabaseClient.from('devices').select('*');
+    const duplicateSN = allDevices.find(d => d.sn.toLowerCase() === sn.toLowerCase() && d.id != id);
+    const duplicateEmail = allDevices.find(d => d.email.toLowerCase() === email.toLowerCase() && d.id != id);
+
+    if (duplicateSN) {
+        alert(`PENTING (Duplicate Values Warning): Serial Number "${sn}" sudah terdaftar atas nama user "${duplicateSN.nama}"! Gunakan SN yang berbeda.`);
+        document.getElementById('dev-sn').style.borderColor = 'var(--danger)';
+        return;
+    }
+    if (duplicateEmail) {
+        alert(`PENTING (Duplicate Values Warning): Email "${email}" sudah terdaftar atas nama user "${duplicateEmail.nama}"!`);
+        document.getElementById('dev-email').style.borderColor = 'var(--danger)';
         return;
     }
 
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (id) {
-        const { data: oldData } = await supabaseClient.from('devices').select('status, sn').eq('id', id).single();
+        const { data: oldData } = await supabaseClient.from('devices').select('history, status').eq('id', id).single();
+        let historyLog = oldData?.history || '';
         
-        let activityMsg = `(${currentUser.username}) Memperbarui data device <strong>${nama}</strong> (SN: ${sn}) - Team: ${team}`;
         if (oldData?.status !== status) {
-            activityMsg += `. Status diubah ke <strong>${status}</strong>`;
+            const newUpdate = `• Status diubah ke <strong>${status}</strong> oleh <em>${currentUser.username}</em> (${nowStr})`;
+            historyLog = historyLog ? newUpdate + '<br>' + historyLog : newUpdate;
         }
 
         await supabaseClient.from('devices').update({
-            nama, sn, email, alamat, team, tanggal, status
+            nama, sn, email, team, alamat, tanggal, status, history: historyLog
         }).eq('id', id);
 
-        await supabaseClient.from('activity_logs').insert([{
-            username: currentUser.username,
-            activity: activityMsg + ` pada ${nowStr}`
-        }]);
-
+        await logActivity(currentUser.username, `Mengupdate data device SN: ${sn} (${nama})`);
     } else {
+        const newHistory = `• Data dibuat oleh <em>${currentUser.username}</em> pada ${nowStr}`;
         await supabaseClient.from('devices').insert([{
-            nama, sn, email, alamat, team, tanggal, status
+            nama, sn, email, team, alamat, tanggal, status, history: newHistory
         }]);
 
-        await supabaseClient.from('activity_logs').insert([{
-            username: currentUser.username,
-            activity: `(${currentUser.username}) Menambahkan device baru <strong>${nama}</strong> (SN: ${sn}, Tim: ${team}) pada ${nowStr}`
-        }]);
+        await logActivity(currentUser.username, `Menambah device baru SN: ${sn} (${nama})`);
     }
     
     closeModal('modal-device');
@@ -378,67 +375,92 @@ async function editDevice(id) {
     if(data) {
         document.getElementById('title-device').innerText = 'Edit Status & Data Deploy';
         document.getElementById('dev-id').value = data.id;
-        document.getElementById('dev-nama').value = data.nama || '';
-        document.getElementById('dev-sn').value = data.sn || '';
-        document.getElementById('dev-email').value = data.email || '';
-        document.getElementById('dev-alamat').value = data.alamat || '';
-        document.getElementById('dev-team').value = data.team || 'Afin';
-        document.getElementById('dev-tgl').value = data.tanggal || '';
-        document.getElementById('dev-status').value = data.status || 'Belum di setup';
+        document.getElementById('dev-nama').value = data.nama;
+        document.getElementById('dev-sn').value = data.sn;
+        document.getElementById('dev-email').value = data.email;
+        document.getElementById('dev-team').value = data.team || '-';
+        document.getElementById('dev-alamat').value = data.alamat;
+        document.getElementById('dev-tgl').value = data.tanggal;
+        document.getElementById('dev-status').value = data.status;
         document.getElementById('modal-device').classList.remove('hidden');
+    }
+}
+
+async function clearHistory(id) {
+    if(confirm("Apakah Anda yakin ingin mereset/menghapus Riwayat Status Update untuk device ini?")) {
+        const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+        await supabaseClient.from('devices').update({ history: `• Riwayat direset oleh ${currentUser.username} pada ${nowStr}` }).eq('id', id);
+        await logActivity(currentUser.username, `Merreset riwayat status device ID: ${id}`);
+        renderDevices();
     }
 }
 
 async function deleteDevice(id) {
     if(confirm("Apakah Anda yakin ingin menghapus data device ini dari cloud?")) {
-        const { data: devData } = await supabaseClient.from('devices').select('nama, sn').eq('id', id).single();
         await supabaseClient.from('devices').delete().eq('id', id);
-
-        const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-        await supabaseClient.from('activity_logs').insert([{
-            username: currentUser.username,
-            activity: `(${currentUser.username}) Menghapus device <strong>${devData?.nama || ''}</strong> (SN: ${devData?.sn || ''}) pada ${nowStr}`
-        }]);
-
+        await logActivity(currentUser.username, `Menghapus data device ID: ${id}`);
         renderDevices();
     }
 }
 
-// ==========================================
-// 4. RIWAYAT AKTIFITAS MODAL
-// ==========================================
+// Modal Riwayat Aktivitas
 async function openActivityModal() {
-    const tbody = document.getElementById('table-activity-logs');
-    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">Memuat log dari Cloud...</td></tr>`;
     document.getElementById('modal-activity').classList.remove('hidden');
+    switchActivityTab('device');
+}
 
-    const { data: logs, error } = await supabaseClient
-        .from('activity_logs')
-        .select('*')
-        .order('id', { ascending: false })
-        .limit(50);
+async function switchActivityTab(tab) {
+    const devTab = document.getElementById('act-tab-device');
+    const loginTab = document.getElementById('act-tab-login');
+    const btnDev = document.getElementById('btn-act-dev');
+    const btnLogin = document.getElementById('btn-act-login');
 
-    if (error || !logs || logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">Belum ada riwayat aktivitas tercatat.</td></tr>`;
-        return;
+    if (tab === 'device') {
+        devTab.classList.remove('hidden');
+        loginTab.classList.add('hidden');
+        btnDev.className = 'btn btn-primary';
+        btnLogin.className = 'btn btn-secondary';
+
+        // Load Device History
+        const { data: devices } = await supabaseClient.from('devices').select('nama, sn, history');
+        const tbody = document.getElementById('table-activity-device');
+        tbody.innerHTML = '';
+        if (devices) {
+            devices.forEach(d => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${d.nama}</strong><br><small class="text-muted">SN: ${d.sn}</small></td>
+                        <td><div class="history-container-modal">${d.history || 'Belum ada riwayat.'}</div></td>
+                    </tr>
+                `;
+            });
+        }
+    } else {
+        devTab.classList.add('hidden');
+        loginTab.classList.remove('hidden');
+        btnDev.className = 'btn btn-secondary';
+        btnLogin.className = 'btn btn-primary';
+
+        // Load Login & Activity Logs
+        const { data: logs } = await supabaseClient.from('activity_logs').select('*').order('id', { ascending: false });
+        const tbody = document.getElementById('table-activity-login');
+        tbody.innerHTML = '';
+        if (logs) {
+            logs.forEach(l => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><small>${l.timestamp}</small></td>
+                        <td><strong class="text-primary">${l.username}</strong></td>
+                        <td>${l.action}</td>
+                    </tr>
+                `;
+            });
+        }
     }
-
-    tbody.innerHTML = '';
-    logs.forEach(log => {
-        const d = new Date(log.created_at);
-        const timeFormatted = isNaN(d) ? log.created_at : d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-        tbody.innerHTML += `
-            <tr>
-                <td style="font-size: 11px; white-space: nowrap;">${timeFormatted}</td>
-                <td><strong class="text-primary">${log.username}</strong></td>
-                <td style="font-size: 12px; line-height: 1.4;">${log.activity}</td>
-            </tr>
-        `;
-    });
 }
 
 // ==========================================
-// 5. CRUD USERS & RESET 2FA
+// 4. CRUD USERS & RESET 2FA
 // ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
@@ -458,19 +480,20 @@ async function renderUsers() {
                 <td>••••••••</td>
                 <td>
                     <button class="btn btn-warning" style="padding:5px 8px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
-                    <button class="btn btn-info" style="padding:5px 8px; font-size:11px;" onclick="resetUser2FA(${u.id})" title="Reset Status 2FA User">Reset 2FA</button>
-                    ${users.length > 1 ? `<button class="btn btn-danger" style="padding:5px 8px; font-size:11px;" onclick="deleteUser(${u.id})">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
+                    <button class="btn btn-info" style="padding:5px 8px; font-size:11px;" onclick="resetUser2FA(${u.id}, '${u.username}')" title="Reset 2FA">Reset 2FA</button>
+                    ${users.length > 1 ? `<button class="btn btn-danger" style="padding:5px 8px; font-size:11px;" onclick="deleteUser(${u.id}, '${u.username}')">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
                 </td>
             </tr>
         `;
     });
 }
 
-async function resetUser2FA(id) {
-    if(confirm("Apakah Anda yakin ingin mereset 2FA user ini? User tersebut harus melakukan scan barcode ulang pada login berikutnya.")) {
+async function resetUser2FA(id, uname) {
+    if(confirm(`Reset 2FA untuk user "${uname}"? User harus scan barcode ulang saat login.`)) {
         const { error } = await supabaseClient.from('app_users').update({ is_2fa_setup: false }).eq('id', id);
         if(!error) {
             alert("Status 2FA berhasil direset!");
+            await logActivity(currentUser.username, `Merreset status 2FA untuk user: ${uname}`);
             renderUsers();
         } else {
             alert("Gagal reset 2FA: " + error.message);
@@ -480,18 +503,28 @@ async function resetUser2FA(id) {
 
 async function saveUser() {
     const id = document.getElementById('usr-id').value;
-    const user = document.getElementById('usr-name').value;
-    const pass = document.getElementById('usr-pass').value;
+    const user = document.getElementById('usr-name').value.trim();
+    const pass = document.getElementById('usr-pass').value.trim();
     const role = document.getElementById('usr-role').value;
 
     if(!user || !pass) return alert("Username & Password harus diisi!");
+
+    // Cek duplikasi username user
+    const { data: allUsers } = await supabaseClient.from('app_users').select('*');
+    const dupUser = allUsers.find(u => u.username.toLowerCase() === user.toLowerCase() && u.id != id);
+    if (dupUser) {
+        alert(`Duplicate Values Warning: Username "${user}" sudah terdaftar!`);
+        return;
+    }
 
     const data = { username: user, password: pass, role: role };
 
     if (id) {
         await supabaseClient.from('app_users').update(data).eq('id', id);
+        await logActivity(currentUser.username, `Mengupdate data user: ${user}`);
     } else {
         await supabaseClient.from('app_users').insert([{ ...data, is_2fa_setup: false }]);
+        await logActivity(currentUser.username, `Menambah user baru: ${user}`);
     }
 
     closeModal('modal-user');
@@ -510,15 +543,16 @@ async function editUser(id) {
     }
 }
 
-async function deleteUser(id) {
-    if(confirm("Hapus hak akses user ini dari cloud?")) {
+async function deleteUser(id, uname) {
+    if(confirm(`Hapus hak akses user "${uname}" dari cloud?`)) {
         await supabaseClient.from('app_users').delete().eq('id', id);
+        await logActivity(currentUser.username, `Menghapus user: ${uname}`);
         renderUsers();
     }
 }
 
 // ==========================================
-// 6. MODALS & EXCEL EXPORT/IMPORT
+// 5. MODALS & EXCEL EXPORT/IMPORT
 // ==========================================
 function openModal(modalId) {
     document.getElementById(modalId).classList.remove('hidden');
@@ -528,10 +562,12 @@ function openModal(modalId) {
         document.getElementById('dev-nama').value = '';
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
+        document.getElementById('dev-team').value = '-';
         document.getElementById('dev-alamat').value = '';
-        document.getElementById('dev-team').value = 'Afin';
         document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0];
         document.getElementById('dev-status').value = 'Belum di setup';
+        document.getElementById('dev-sn').style.borderColor = 'var(--border)';
+        document.getElementById('dev-email').style.borderColor = 'var(--border)';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
         document.getElementById('usr-id').value = '';
@@ -552,6 +588,7 @@ async function exportExcel() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "DataDeploy");
     XLSX.writeFile(workbook, "AutoPilot_Cloud_Data.xlsx");
+    await logActivity(currentUser.username, "Mengekspor data ke file Excel");
 }
 
 async function importExcel(event) {
@@ -571,20 +608,16 @@ async function importExcel(event) {
                 nama: item.nama || '',
                 sn: item.sn || '',
                 email: item.email || '',
+                team: item.team || '-',
                 alamat: item.alamat || '',
-                team: item.team || 'Afin',
                 tanggal: item.tanggal || new Date().toISOString().split('T')[0],
-                status: item.status || 'Belum di setup'
+                status: item.status || 'Belum di setup',
+                history: `• Diimpor dari Excel oleh ${currentUser.username} pada ${nowStr}`
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
-
-            await supabaseClient.from('activity_logs').insert([{
-                username: currentUser.username,
-                activity: `(${currentUser.username}) Mengimpor data batch dari file Excel (${nowStr})`
-            }]);
-
             renderDevices();
+            await logActivity(currentUser.username, `Mengimpor ${importedData.length} data dari Excel`);
             alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
     };
