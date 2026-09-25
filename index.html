@@ -82,8 +82,6 @@
             <div class="nav-tabs">
                 <button class="tab-btn active" onclick="switchTab('device')">Deploy Device</button>
                 <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Pengaturan User</button>
-                <!-- Tombol Riwayat Aktifitas sejajar di Navbar -->
-                <button class="btn btn-warning" onclick="openActivityModal()" style="font-size: 13px; padding: 7px 14px;">Riwayat Aktifitas</button>
                 <button class="btn btn-danger" onclick="logout()">Logout</button>
             </div>
         </nav>
@@ -112,9 +110,9 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, atau Email..." style="margin: 0; width: 220px;">
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, atau Email..." style="margin: 0; width: 200px;">
                         
-                        <select id="filter-status-select" class="input-form" style="margin: 0; width: 160px;" onchange="renderDevices()">
+                        <select id="filter-status-select" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
                             <option value="All">Status: Semua</option>
                             <option value="Belum di setup">Belum di setup</option>
                             <option value="On progress">On progress</option>
@@ -122,14 +120,17 @@
                             <option value="Done deploy user">Done deploy user</option>
                         </select>
 
-                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 160px;" onchange="renderDevices()">
+                        <select id="sort-date-select" class="input-form" style="margin: 0; width: 150px;" onchange="renderDevices()">
                             <option value="oldest">Tgl Deploy: Awal</option>
                             <option value="newest">Tgl Deploy: Terbaru</option>
                         </select>
 
                         <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
                     </div>
+                    
+                    <!-- Action Box dengan Tombol Riwayat Aktifitas di sebelah kiri + Tambah Device -->
                     <div class="action-box">
+                        <button class="btn btn-info" onclick="openActivityModal()">Riwayat Aktifitas</button>
                         <button class="btn btn-primary" onclick="openModal('modal-device')">+ Tambah Device</button>
                         <button class="btn btn-export" onclick="exportExcel()">Export Excel</button>
                         <label for="import-file" class="btn btn-import" style="cursor: pointer;">Import Excel</label>
@@ -145,10 +146,10 @@
                                 <th>Serial Number</th>
                                 <th>Email</th>
                                 <th>Alamat Lengkap</th>
-                                <th>Tgl Deploy</th>
                                 <th>Team Deploy</th>
+                                <th>Tgl Deploy</th>
                                 <th>Status Deploy</th>
-                                <th style="width: 120px;">Aksi</th>
+                                <th style="width: 140px;">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="table-device"></tbody>
@@ -180,7 +181,34 @@
         </div>
     </div>
 
-    <!-- MODAL: FORM DEVICE (DENGAN CONDITIONAL FORMATTING DUPLICATE VALUES) -->
+    <!-- MODAL: RIWAYAT AKTIFITAS (Login & Status Updates) -->
+    <div id="modal-activity" class="modal hidden">
+        <div class="modal-box" style="width: 700px;">
+            <h2 class="text-primary mb-20">Log Riwayat Aktifitas & Login</h2>
+            <p class="text-muted" style="font-size: 11px; margin-bottom: 15px;">Catatan login user dan perubahan status deploy secara real-time.</p>
+            
+            <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Username</th>
+                            <th>Aktivitas / Riwayat</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-activity-logs">
+                        <tr><td colspan="3" class="text-center text-muted">Memuat log...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('modal-activity')">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DEVICE -->
     <div id="modal-device" class="modal hidden">
         <div class="modal-box">
             <h2 id="title-device" class="text-primary mb-20">Form Deploy Device</h2>
@@ -189,25 +217,24 @@
             <label>Nama User (Penerima)</label>
             <input type="text" id="dev-nama" class="input-form" placeholder="Nama Karyawan/User">
             
-            <label>Serial Number (Cek Duplikasi)</label>
-            <input type="text" id="dev-sn" class="input-form" placeholder="SN Device / Laptop" oninput="checkDuplicateSN(this.value)">
-            <small id="sn-warning" class="text-danger hidden" style="display:block; margin-top:-10px; margin-bottom:10px; font-size:11px;">⚠️ Peringatan: Serial Number ini sudah terdaftar di database!</small>
+            <label>Serial Number (Validasi Duplikat)</label>
+            <input type="text" id="dev-sn" class="input-form" placeholder="SN Device / Laptop">
             
             <label>Email User</label>
             <input type="email" id="dev-email" class="input-form" placeholder="email@domain.com">
             
             <label>Alamat (Manual Input)</label>
-            <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
+            <textarea id="dev-alamat" class="input-form" rows="2" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
-            <label>Tanggal Deploy (Kalender: Hari, Bulan, Tahun)</label>
-            <input type="date" id="dev-tgl" class="input-form">
-
             <label>Team Deploy</label>
             <select id="dev-team" class="input-form">
                 <option value="Afin">Afin</option>
                 <option value="Bayu">Bayu</option>
                 <option value="Raffael">Raffael</option>
             </select>
+
+            <label>Tanggal Deploy (Kalender)</label>
+            <input type="date" id="dev-tgl" class="input-form">
             
             <label>Status Deploy</label>
             <select id="dev-status" class="input-form">
@@ -219,12 +246,12 @@
             
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('modal-device')">Batal</button>
-                <button class="btn btn-primary" id="btn-save-device" onclick="saveDevice()">Simpan Data</button>
+                <button class="btn btn-primary" onclick="saveDevice()">Simpan Data</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: FORM USER -->
+    <!-- MODAL: USER -->
     <div id="modal-user" class="modal hidden">
         <div class="modal-box">
             <h2 id="title-user" class="text-primary mb-20">Form Akun Login</h2>
@@ -245,36 +272,6 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('modal-user')">Batal</button>
                 <button class="btn btn-primary" onclick="saveUser()">Simpan Akun</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: RIWAYAT AKTIFITAS (LOGIN & STATUS UPDATE) -->
-    <div id="modal-activity" class="modal hidden">
-        <div class="modal-box" style="width: 700px; max-width: 95%;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 class="text-primary">Riwayat Aktifitas & Login Sistem</h2>
-                <button class="btn btn-secondary" style="padding: 4px 10px;" onclick="closeModal('modal-activity')">✕ Tutup</button>
-            </div>
-            <p class="text-muted mb-15" style="font-size: 12px;">Mencatat log akses login web, pembuatan perangkat, perubahan status deploy, dan reset keamanan secara *real-time*.</p>
-            
-            <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 150px;">Waktu</th>
-                            <th style="width: 120px;">User</th>
-                            <th>Aktivitas & Riwayat Detail</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-activity-logs">
-                        <!-- Data log dimuat secara dinamis -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="modal-footer" style="margin-top: 20px;">
-                <button class="btn btn-danger" onclick="clearActivityLogs()">Clear Riwayat Aktifitas</button>
-                <button class="btn btn-primary" onclick="loadActivityLogs()">Refresh Log</button>
             </div>
         </div>
     </div>
