@@ -225,7 +225,34 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES, DUPLICATE CHECK & LOGS
+// 3. CONDITIONAL FORMATTING & DUPLICATE CHECK
+// ==========================================
+async function checkDuplicateSN(inputElement) {
+    const snVal = inputElement.value.trim();
+    const currentId = document.getElementById('dev-id').value;
+    const warningEl = document.getElementById('sn-warning');
+
+    if (!snVal) {
+        inputElement.style.borderColor = 'var(--border)';
+        warningEl.classList.add('hidden');
+        return;
+    }
+
+    const { data: devices } = await supabaseClient.from('devices').select('id, sn');
+    if (devices) {
+        const isDuplicate = devices.some(d => d.sn && d.sn.toLowerCase() === snVal.toLowerCase() && d.id != currentId);
+        if (isDuplicate) {
+            inputElement.style.borderColor = 'var(--danger)';
+            warningEl.classList.remove('hidden');
+        } else {
+            inputElement.style.borderColor = 'var(--success)';
+            warningEl.classList.add('hidden');
+        }
+    }
+}
+
+// ==========================================
+// 4. CRUD DEVICES, TEAM & HISTORY MODAL
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -244,21 +271,11 @@ async function renderDevices() {
 
     let list = devices || [];
 
-    // Map untuk mendeteksi duplikasi SN & Email (Conditional Formatting Highlight)
-    const snCounts = {};
-    const emailCounts = {};
-    list.forEach(d => {
-        if(d.sn) { const cleanSn = d.sn.trim().toLowerCase(); snCounts[cleanSn] = (snCounts[cleanSn] || 0) + 1; }
-        if(d.email) { const cleanEmail = d.email.trim().toLowerCase(); emailCounts[cleanEmail] = (emailCounts[cleanEmail] || 0) + 1; }
-    });
-
-    // Filter Status
     const selectedStatus = document.getElementById('filter-status-select').value;
     if (selectedStatus !== 'All') {
         list = list.filter(d => d.status === selectedStatus);
     }
 
-    // Filter Pencarian
     const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
     if (searchVal) {
         list = list.filter(d => 
@@ -269,7 +286,6 @@ async function renderDevices() {
         );
     }
 
-    // Sortir Tanggal Deploy
     const sortVal = document.getElementById('sort-date-select').value;
     list.sort((a, b) => {
         const dateA = a.tanggal || '';
@@ -282,33 +298,17 @@ async function renderDevices() {
     });
 
     list.forEach(d => {
-        const isSnDuplicate = d.sn && snCounts[d.sn.trim().toLowerCase()] > 1;
-        const isEmailDuplicate = d.email && emailCounts[d.email.trim().toLowerCase()] > 1;
-        const rowClass = (isSnDuplicate || isEmailDuplicate) ? 'duplicate-row' : '';
-
-        let snDisplay = d.sn || '';
-        if(isSnDuplicate) snDisplay += ` <span class="duplicate-badge" title="Serial Number Duplikat!">DUPLIKAT SN</span>`;
-
-        let emailDisplay = d.email || '';
-        if(isEmailDuplicate) emailDisplay += ` <span class="duplicate-badge" title="Email Duplikat!">DUPLIKAT EMAIL</span>`;
-
         tbody.innerHTML += `
-            <tr class="${rowClass}">
+            <tr>
                 <td>${d.nama || ''}</td>
-                <td>${snDisplay}</td>
-                <td>${emailDisplay}</td>
+                <td><code>${d.sn || ''}</code></td>
+                <td>${d.email || ''}</td>
+                <td><span class="text-primary font-bold">${d.team || '-'}</span></td>
                 <td>${d.alamat || ''}</td>
-                <td><strong>${d.team || '-'}</strong></td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
                 <td>${getStatusBadge(d.status)}</td>
                 <td>
-                    <div class="history-container">
-                        ${d.history || 'Belum ada riwayat update.'}
-                    </div>
-                </td>
-                <td>
                     <button class="btn btn-warning" style="padding:5px 8px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
-                    <button class="btn btn-clear" style="padding:5px 8px; font-size:11px;" onclick="clearHistory(${d.id})" title="Reset Riwayat Status">Clear</button>
                     <button class="btn btn-danger" style="padding:5px 8px; font-size:11px;" onclick="deleteDevice(${d.id})">Hapus</button>
                 </td>
             </tr>
@@ -323,36 +323,26 @@ async function searchDevice() {
 
 async function saveDevice() {
     const id = document.getElementById('dev-id').value;
-    const nama = document.getElementById('dev-nama').value.trim();
+    const nama = document.getElementById('dev-nama').value;
     const sn = document.getElementById('dev-sn').value.trim();
-    const email = document.getElementById('dev-email').value.trim();
-    const alamat = document.getElementById('dev-alamat').value.trim();
-    const team = document.getElementById('dev-team').value.trim();
+    const email = document.getElementById('dev-email').value;
+    const team = document.getElementById('dev-team').value;
+    const alamat = document.getElementById('dev-alamat').value;
     const tanggal = document.getElementById('dev-tgl').value;
     const status = document.getElementById('dev-status').value;
 
-    if(!nama || !sn) {
-        alert("Nama User dan Serial Number wajib diisi!");
+    if (!sn) {
+        alert("Serial Number (SN) wajib diisi!");
         return;
     }
 
-    // Validasi Highlight / Duplicate Values Prevention
-    const { data: allDevices } = await supabaseClient.from('devices').select('id, sn, email');
-    if (allDevices) {
-        const duplicateSn = allDevices.find(d => d.sn && d.sn.toLowerCase() === sn.toLowerCase() && d.id != id);
-        if (duplicateSn) {
-            alert(`⚠️ PERINGATAN DUPLIKASI (Highlight Cells Rules):\nSerial Number "${sn}" sudah terdaftar di sistem! Harap masukkan Serial Number yang unik.`);
-            document.getElementById('dev-sn').focus();
+    // Validasi Duplicate Values ketat saat simpan
+    const { data: existingDevices } = await supabaseClient.from('devices').select('id, sn');
+    if (existingDevices) {
+        const duplicate = existingDevices.some(d => d.sn && d.sn.toLowerCase() === sn.toLowerCase() && d.id != id);
+        if (duplicate) {
+            alert("GAGAL SIMPAN: Serial Number (SN) ini sudah terdaftar di sistem (Duplicate Values terdeteksi)!");
             return;
-        }
-
-        if (email) {
-            const duplicateEmail = allDevices.find(d => d.email && d.email.toLowerCase() === email.toLowerCase() && d.id != id);
-            if (duplicateEmail) {
-                alert(`⚠️ PERINGATAN DUPLIKASI (Highlight Cells Rules):\nEmail "${email}" sudah terdaftar di sistem!`);
-                document.getElementById('dev-email').focus();
-                return;
-            }
         }
     }
 
@@ -363,17 +353,17 @@ async function saveDevice() {
         let historyLog = oldData?.history || '';
         
         if (oldData?.status !== status) {
-            const newUpdate = `• Status diubah ke <strong>${status}</strong> oleh <strong>${currentUser.username}</strong> (${nowStr})`;
+            const newUpdate = `[${nowStr}] User <strong>${currentUser.username}</strong> mengubah status <strong>${nama || sn}</strong> ke <strong>${status}</strong>`;
             historyLog = historyLog ? newUpdate + '<br>' + historyLog : newUpdate;
         }
 
         await supabaseClient.from('devices').update({
-            nama, sn, email, alamat, team, tanggal, status, history: historyLog
+            nama, sn, email, team, alamat, tanggal, status, history: historyLog
         }).eq('id', id);
     } else {
-        const newHistory = `• Data dibuat oleh <strong>${currentUser.username}</strong> pada ${nowStr}`;
+        const newHistory = `[${nowStr}] Device <strong>${sn}</strong> (${nama || 'Tanpa Nama'}) ditambahkan oleh <strong>${currentUser.username}</strong>`;
         await supabaseClient.from('devices').insert([{
-            nama, sn, email, alamat, team, tanggal, status, history: newHistory
+            nama, sn, email, team, alamat, tanggal, status, history: newHistory
         }]);
     }
     
@@ -386,22 +376,16 @@ async function editDevice(id) {
     if(data) {
         document.getElementById('title-device').innerText = 'Edit Status & Data Deploy';
         document.getElementById('dev-id').value = data.id;
-        document.getElementById('dev-nama').value = data.nama || '';
-        document.getElementById('dev-sn').value = data.sn || '';
-        document.getElementById('dev-email').value = data.email || '';
-        document.getElementById('dev-alamat').value = data.alamat || '';
+        document.getElementById('dev-nama').value = data.nama;
+        document.getElementById('dev-sn').value = data.sn;
+        document.getElementById('dev-email').value = data.email;
         document.getElementById('dev-team').value = data.team || '';
-        document.getElementById('dev-tgl').value = data.tanggal || '';
-        document.getElementById('dev-status').value = data.status || 'Belum di setup';
+        document.getElementById('dev-alamat').value = data.alamat;
+        document.getElementById('dev-tgl').value = data.tanggal;
+        document.getElementById('dev-status').value = data.status;
+        document.getElementById('sn-warning').classList.add('hidden');
+        document.getElementById('dev-sn').style.borderColor = 'var(--border)';
         document.getElementById('modal-device').classList.remove('hidden');
-    }
-}
-
-async function clearHistory(id) {
-    if(confirm("Apakah Anda yakin ingin mereset/menghapus Riwayat Status Update untuk device ini?")) {
-        const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-        await supabaseClient.from('devices').update({ history: `• Riwayat direset oleh ${currentUser.username} pada ${nowStr}` }).eq('id', id);
-        renderDevices();
     }
 }
 
@@ -412,38 +396,32 @@ async function deleteDevice(id) {
     }
 }
 
-// Modal Log Aktivitas Riwayat Realtime
-async function openActivityModal() {
-    const container = document.getElementById('activity-log-container');
-    container.innerHTML = 'Memuat log aktivitas...';
-    document.getElementById('modal-activity').classList.remove('hidden');
+// Membuka Modal Riwayat Aktivitas Realtime Global
+async function openHistoryModal() {
+    const { data: devices } = await supabaseClient.from('devices').select('nama, sn, history');
+    const container = document.getElementById('history-log-content');
+    container.innerHTML = '';
 
-    const { data: devices, error } = await supabaseClient.from('devices').select('nama, sn, team, history');
-    if (error) {
-        container.innerHTML = '<span class="text-danger">Gagal memuat log aktivitas dari database.</span>';
-        return;
+    let combinedHistory = [];
+    if (devices) {
+        devices.forEach(d => {
+            if (d.history) {
+                combinedHistory.push(`<div style="margin-bottom: 10px; border-bottom: 1px dashed var(--border); padding-bottom: 8px;"><strong>Device SN: ${d.sn} (${d.nama || 'No Name'})</strong><br>${d.history}</div>`);
+            }
+        });
     }
 
-    if (!devices || devices.length === 0) {
-        container.innerHTML = '<span class="text-muted">Belum ada aktivitas tercatat.</span>';
-        return;
+    if (combinedHistory.length > 0) {
+        container.innerHTML = combinedHistory.join('');
+    } else {
+        container.innerHTML = '<p class="text-muted text-center">Belum ada riwayat aktivitas tercatat.</p>';
     }
 
-    let html = '';
-    devices.forEach(d => {
-        if(d.history) {
-            html += `<div style="margin-bottom: 12px; border-bottom: 1px dashed #222; padding-bottom: 8px;">
-                <strong class="text-primary">${d.nama || 'Tanpa Nama'}</strong> (SN: ${d.sn || '-'} | Team: ${d.team || '-'})<br>
-                <div style="color: #ccc; margin-top: 4px;">${d.history}</div>
-            </div>`;
-        }
-    });
-
-    container.innerHTML = html || '<span class="text-muted">Belum ada riwayat aktivitas.</span>';
+    document.getElementById('modal-history').classList.remove('hidden');
 }
 
 // ==========================================
-// 4. CRUD USERS (SUPABASE) & RESET 2FA
+// 5. CRUD USERS & RESET 2FA
 // ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
@@ -472,7 +450,7 @@ async function renderUsers() {
 }
 
 async function resetUser2FA(id) {
-    if(confirm("Apakah Anda yakin ingin mereset 2FA user ini? User tersebut harus melakukan scan barcode ulang pada saat login berikutnya.")) {
+    if(confirm("Apakah Anda yakin ingin mereset 2FA user ini? User tersebut harus melakukan scan barcode ulang pada login berikutnya.")) {
         const { error } = await supabaseClient.from('app_users').update({ is_2fa_setup: false }).eq('id', id);
         if(!error) {
             alert("Status 2FA berhasil direset!");
@@ -523,7 +501,7 @@ async function deleteUser(id) {
 }
 
 // ==========================================
-// 5. MODALS & EXCEL EXPORT/IMPORT
+// 6. MODALS & EXCEL EXPORT/IMPORT
 // ==========================================
 function openModal(modalId) {
     document.getElementById(modalId).classList.remove('hidden');
@@ -533,10 +511,12 @@ function openModal(modalId) {
         document.getElementById('dev-nama').value = '';
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
-        document.getElementById('dev-alamat').value = '';
         document.getElementById('dev-team').value = '';
+        document.getElementById('dev-alamat').value = '';
         document.getElementById('dev-tgl').value = new Date().toISOString().split('T')[0];
         document.getElementById('dev-status').value = 'Belum di setup';
+        document.getElementById('sn-warning').classList.add('hidden');
+        document.getElementById('dev-sn').style.borderColor = 'var(--border)';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
         document.getElementById('usr-id').value = '';
@@ -576,11 +556,11 @@ async function importExcel(event) {
                 nama: item.nama || '',
                 sn: item.sn || '',
                 email: item.email || '',
+                team: item.team || '',
                 alamat: item.alamat || '',
-                team: item.team || 'Import Excel',
                 tanggal: item.tanggal || new Date().toISOString().split('T')[0],
                 status: item.status || 'Belum di setup',
-                history: `• Diimpor dari Excel oleh ${currentUser.username} pada ${nowStr}`
+                history: `• Diimpor dari Excel pada ${nowStr}`
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
