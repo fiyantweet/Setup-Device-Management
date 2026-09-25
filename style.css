@@ -25,6 +25,7 @@ body { background-color: var(--bg-main); color: var(--text-main); font-size: 14p
 .relative { position: relative; }
 .w-100 { width: 100%; }
 .mt-10 { margin-top: 10px; }
+.mb-15 { margin-bottom: 15px; }
 .mb-20 { margin-bottom: 20px; }
 .mt-15 { margin-top: 15px; text-align: center; }
 .text-primary { color: var(--primary); }
@@ -52,18 +53,6 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .btn-export:hover { background-color: #32e612; }
 .btn-import { background-color: var(--btn-import); color: #000; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); text-transform: uppercase; }
 .btn-import:hover { background-color: #e6c200; }
-
-/* Conditional Formatting / Highlight Cells Rules untuk Duplicate Values */
-.highlight-duplicate {
-    background-color: rgba(255, 51, 102, 0.25) !important;
-    border: 1px dashed var(--danger);
-    color: #ff99bb !important;
-    font-weight: bold;
-    padding: 3px 8px;
-    border-radius: 4px;
-    display: inline-block;
-}
-
 .card { background-color: var(--bg-card); padding: 40px; border-radius: 10px; width: 400px; border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
 .navbar { display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-card); padding: 15px 30px; border-bottom: 1px solid var(--border); }
 .logo { font-size: 20px; font-weight: 800; letter-spacing: 1px; display: flex; align-items: center; gap: 10px;}
@@ -72,7 +61,7 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .tab-btn { background: none; border: none; color: var(--text-muted); font-weight: 600; cursor: pointer; padding: 8px 12px; font-size: 14px; transition: 0.3s;}
 .tab-btn:hover { color: var(--text-main); }
 .tab-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
-.container { max-width: 1400px; margin: 25px auto; padding: 0 20px; }
+.container { max-width: 1450px; margin: 25px auto; padding: 0 20px; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .dashboard-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 30px; }
@@ -87,12 +76,17 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .box-deploy { border-top-color: var(--success); } .box-deploy h2 { color: var(--success); }
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;}
 .search-box { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.action-box { display: flex; gap: 10px; }
+.action-box { display: flex; gap: 10px; flex-wrap: wrap; }
 .table-wrapper { background-color: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
 th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; background-color: #080808; letter-spacing: 0.5px;}
 tr:hover { background-color: var(--bg-hover); }
+
+/* Conditional Formatting Highlight untuk Data Duplikat */
+.duplicate-row { background-color: rgba(255, 51, 102, 0.12) !important; border-left: 4px solid var(--danger); }
+.duplicate-badge { background-color: var(--danger); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 5px; font-weight: bold; }
+
 .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; color: #000; display: inline-block;}
 .badge-belum { background-color: var(--danger); color: #fff;}
 .badge-progress { background-color: var(--warning); }
