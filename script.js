@@ -49,7 +49,7 @@ async function logActivity(username, actionText) {
 }
 
 // ==========================================
-// 1. AUTENTIKASI & LOGIN SISTEM[cite: 4]
+// 1. AUTENTIKASI & LOGIN SISTEM
 // ==========================================
 function toggleAuth(view) {
     document.getElementById('login-card').classList.add('hidden');
@@ -177,7 +177,7 @@ function logout() {
 }
 
 // ==========================================
-// 2. INISIALISASI & REALTIME SUBSCRIPTION[cite: 4]
+// 2. INISIALISASI & REALTIME SUBSCRIPTION
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
@@ -198,7 +198,6 @@ async function initApp() {
     await renderOldDevices();
     await renderIncidents();
 
-    // Aktifkan Realtime Listener Otomatis
     setupRealtimeListeners();
 }
 
@@ -322,7 +321,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES (DEPLOY)[cite: 4]
+// 3. CRUD DEVICES (DEPLOY) + CONDITIONAL FORMATTING DUPLICATES
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -340,6 +339,20 @@ async function renderDevices() {
     tbody.innerHTML = '';
 
     let list = devices || [];
+
+    // Hitung frekuensi kemunculan SN dan Email untuk Conditional Formatting Duplicates
+    const snCounts = {};
+    const emailCounts = {};
+    list.forEach(d => {
+        if (d.sn) {
+            const s = d.sn.trim().toLowerCase();
+            snCounts[s] = (snCounts[s] || 0) + 1;
+        }
+        if (d.email) {
+            const e = d.email.trim().toLowerCase();
+            emailCounts[e] = (emailCounts[e] || 0) + 1;
+        }
+    });
 
     const selectedStatus = document.getElementById('filter-status-select').value;
     if (selectedStatus !== 'All') {
@@ -372,11 +385,25 @@ async function renderDevices() {
     });
 
     list.forEach(d => {
+        const isDupeSN = d.sn && snCounts[d.sn.trim().toLowerCase()] > 1;
+        const isDupeEmail = d.email && emailCounts[d.email.trim().toLowerCase()] > 1;
+
+        // Gaya Highlight Cells Rules -> Duplicate Values (Excel style)
+        const dupeStyle = 'background-color: rgba(255, 51, 102, 0.25); color: #ff3366; border: 1px dashed #ff3366; padding: 2px 6px; border-radius: 4px; font-weight: bold;';
+        
+        const snCellHTML = isDupeSN 
+            ? `<strong style="${dupeStyle}" title="Duplicate Values Warning: SN ini terdeteksi ganda!">⚠️ ${d.sn}</strong>` 
+            : `<strong>${d.sn || ''}</strong>`;
+            
+        const emailCellHTML = isDupeEmail 
+            ? `<span style="${dupeStyle}" title="Duplicate Values Warning: Email ini terdeteksi ganda!">⚠️ ${d.email}</span>` 
+            : `${d.email || ''}`;
+
         tbody.innerHTML += `
             <tr>
                 <td>${d.nama || ''}</td>
-                <td><strong>${d.sn || ''}</strong></td>
-                <td>${d.email || ''}</td>
+                <td>${snCellHTML}</td>
+                <td>${emailCellHTML}</td>
                 <td><span class="badge badge-setup" style="background:#222; color:var(--primary);">${d.team || '-'}</span></td>
                 <td><span class="badge badge-setup" style="background:#181818; color:var(--warning); border:1px solid var(--border);">${d.lokasi || '-'}</span></td>
                 <td>${d.alamat || ''}</td>
@@ -485,7 +512,7 @@ async function deleteDevice(id) {
 }
 
 // ==========================================
-// 4. REPORT STATUS DEVICE LAMA
+// 4. REPORT STATUS DEVICE LAMA + CONDITIONAL FORMATTING DUPLICATES
 // ==========================================
 function getBastBadge(bast) {
     if(bast === 'done BAST') return `<span class="badge badge-bast-done">Done BAST</span>`;
@@ -506,6 +533,20 @@ async function renderOldDevices() {
     tbody.innerHTML = '';
 
     let list = oldList || [];
+
+    // Hitung duplikasi SN & Email pada Report Device Lama
+    const oldSnCounts = {};
+    const oldEmailCounts = {};
+    list.forEach(d => {
+        if (d.sn) {
+            const s = d.sn.trim().toLowerCase();
+            oldSnCounts[s] = (oldSnCounts[s] || 0) + 1;
+        }
+        if (d.email) {
+            const e = d.email.trim().toLowerCase();
+            oldEmailCounts[e] = (oldEmailCounts[e] || 0) + 1;
+        }
+    });
 
     const locFilter = document.getElementById('filter-old-location-select').value;
     if (locFilter !== 'All') {
@@ -533,11 +574,23 @@ async function renderOldDevices() {
     }
 
     list.forEach(d => {
+        const isDupeSN = d.sn && oldSnCounts[d.sn.trim().toLowerCase()] > 1;
+        const isDupeEmail = d.email && oldEmailCounts[d.email.trim().toLowerCase()] > 1;
+        const dupeStyle = 'background-color: rgba(255, 51, 102, 0.25); color: #ff3366; border: 1px dashed #ff3366; padding: 2px 6px; border-radius: 4px; font-weight: bold;';
+
+        const snCellHTML = isDupeSN 
+            ? `<strong style="${dupeStyle}" title="Duplicate Values Warning: SN Device Lama ini terdeteksi ganda!">⚠️ ${d.sn}</strong>` 
+            : `<strong>${d.sn || ''}</strong>`;
+            
+        const emailCellHTML = isDupeEmail 
+            ? `<span style="${dupeStyle}" title="Duplicate Values Warning: Email Device Lama ini terdeteksi ganda!">⚠️ ${d.email}</span>` 
+            : `${d.email || ''}`;
+
         tbody.innerHTML += `
             <tr>
-                <td><strong>${d.sn || ''}</strong></td>
+                <td>${snCellHTML}</td>
                 <td>${d.nama || ''}</td>
-                <td>${d.email || ''}</td>
+                <td>${emailCellHTML}</td>
                 <td><span class="badge badge-setup" style="background:#181818; color:var(--warning); border:1px solid var(--border);">${d.lokasi || '-'}</span></td>
                 <td>${d.divisi || ''}</td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
@@ -786,7 +839,7 @@ async function confirmResetDatabase() {
 }
 
 // ==========================================
-// 8. RIWAYAT AKTIVITAS & MODAL[cite: 4]
+// 8. RIWAYAT AKTIVITAS & MODAL
 // ==========================================
 async function openActivityModal() {
     document.getElementById('modal-activity').classList.remove('hidden');
@@ -842,7 +895,7 @@ async function switchActivityTab(tab) {
 }
 
 // ==========================================
-// 9. CRUD USERS & RESET 2FA[cite: 2, 4]
+// 9. CRUD USERS & RESET 2FA
 // ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
