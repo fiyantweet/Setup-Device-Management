@@ -13,7 +13,6 @@ try {
 
 let currentUser = null;
 
-// Cek Sesi Persisten saat Browser Dimuat
 window.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('autopilot_current_user');
     if (savedUser) {
@@ -41,6 +40,26 @@ function setupEnterListeners() {
     if(rPass) rPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
     if(sInput) sInput.addEventListener('keypress', e => { if(e.key === 'Enter') searchDevice(); });
     if(sOldInput) sOldInput.addEventListener('keypress', e => { if(e.key === 'Enter') renderOldDevices(); });
+}
+
+// ==========================================
+// MENGAKTIFKAN SUPABASE REALTIME
+// ==========================================
+function setupRealtime() {
+    if (!supabaseClient) return;
+    supabaseClient
+        .channel('public-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, payload => renderDevices())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'old_devices' }, payload => renderOldDevices())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'incident_summaries' }, payload => renderIncidents())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, payload => {
+            loadLocationOptions();
+            if (currentUser && currentUser.role === 'Admin') renderLocations();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, payload => {
+            if (currentUser && currentUser.role === 'Admin') renderUsers();
+        })
+        .subscribe();
 }
 
 async function logActivity(username, actionText) {
@@ -73,22 +92,11 @@ async function handleLogin() {
     const user = document.getElementById('login-user').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
     
-    if (!user || !pass) {
-        alert("Username dan Password wajib diisi!");
-        return;
-    }
+    if (!user || !pass) return alert("Username dan Password wajib diisi!");
 
     try {
-        const { data: users, error } = await supabaseClient
-            .from('app_users')
-            .select('*')
-            .eq('username', user)
-            .eq('password', pass);
-
-        if (error) {
-            alert("Database Error: " + error.message);
-            return;
-        }
+        const { data: users, error } = await supabaseClient.from('app_users').select('*').eq('username', user).eq('password', pass);
+        if (error) return alert("Database Error: " + error.message);
 
         if (!users || users.length === 0) {
             alert("Login Gagal: Username atau Password salah!");
@@ -127,13 +135,9 @@ function prepareAuthenticator(account) {
 
 async function handle2FA() {
     const code = document.getElementById('mfa-code').value.trim();
-    
     if (code.length === 6 && !isNaN(code)) {
         if (!currentUser.is_2fa_setup) {
-            await supabaseClient
-                .from('app_users')
-                .update({ is_2fa_setup: true })
-                .eq('id', currentUser.id);
+            await supabaseClient.from('app_users').update({ is_2fa_setup: true }).eq('id', currentUser.id);
             currentUser.is_2fa_setup = true;
         }
 
@@ -154,11 +158,7 @@ async function handleReset() {
     
     if(!user || !newPass) return alert("Harap isi Username dan Password Baru!");
 
-    const { data, error } = await supabaseClient
-        .from('app_users')
-        .update({ password: newPass })
-        .eq('username', user)
-        .select();
+    const { data, error } = await supabaseClient.from('app_users').update({ password: newPass }).eq('username', user).select();
 
     if (error || !data || data.length === 0) {
         alert("Gagal Reset: Username tidak ditemukan di database.");
@@ -170,10 +170,7 @@ async function handleReset() {
 }
 
 function logout() {
-    if(currentUser) {
-        logActivity(currentUser.username, "Logout dari sistem");
-    }
-    supabaseClient.removeAllChannels(); // Bersihkan Realtime saat logout
+    if(currentUser) logActivity(currentUser.username, "Logout dari sistem");
     currentUser = null;
     localStorage.removeItem('autopilot_current_user');
     document.getElementById('app-section').classList.add('hidden');
@@ -198,48 +195,13 @@ async function initApp() {
         document.getElementById('tab-btn-admin').style.display = 'none';
     }
 
+    setupRealtime(); // Menjalankan Realtime Engine Listener
+
     await loadLocationOptions();
     await renderDevices();
     await renderOldDevices();
     await renderIncidents();
     if(currentUser.role === 'Admin') renderLocations();
-    
-    // Inisialisasi Fungsi Realtime dari Supabase
-    setupRealtimeSubscriptions();
-}
-
-function setupRealtimeSubscriptions() {
-    // Berlangganan perubahan Realtime pada tabel public
-    supabaseClient.channel('custom-all-channel')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, payload => {
-            renderDevices();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'old_devices' }, payload => {
-            renderOldDevices();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'incident_summaries' }, payload => {
-            renderIncidents();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, payload => {
-            loadLocationOptions();
-            if(currentUser && currentUser.role === 'Admin') renderLocations();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, payload => {
-            if(currentUser && currentUser.role === 'Admin') renderUsers();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, payload => {
-            // Update modal aktivitas otomatis jika sedang terbuka
-            const modalActivity = document.getElementById('modal-activity');
-            if (!modalActivity.classList.contains('hidden')) {
-                const devTabHidden = document.getElementById('act-tab-device').classList.contains('hidden');
-                if(!devTabHidden){
-                    switchActivityTab('device');
-                } else {
-                    switchActivityTab('login');
-                }
-            }
-        })
-        .subscribe();
 }
 
 function switchTab(tabName) {
@@ -249,11 +211,8 @@ function switchTab(tabName) {
     document.getElementById('stat-view-1').classList.add('hidden');
     document.getElementById('stat-view-2').classList.add('hidden');
 
-    if (tabName === 'device') {
-        document.getElementById('stat-view-1').classList.remove('hidden');
-    } else if (tabName === 'old-device') {
-        document.getElementById('stat-view-2').classList.remove('hidden');
-    }
+    if (tabName === 'device') document.getElementById('stat-view-1').classList.remove('hidden');
+    else if (tabName === 'old-device') document.getElementById('stat-view-2').classList.remove('hidden');
 
     document.getElementById(`tab-${tabName}`).classList.add('active');
     event.currentTarget.classList.add('active');
@@ -293,12 +252,9 @@ async function loadLocationOptions() {
     if (oldLoc) oldLoc.value = currentOldVal;
 }
 
-async function updateDashboardStats(devices = null) {
-    if(!devices) {
-        const { data } = await supabaseClient.from('devices').select('*');
-        devices = data || [];
-    }
-    
+// PERBAIKAN: Fungsi Update Dashboard menerima array devices yang sudah diambil agar sinkron
+function updateDashboardStats(devices) {
+    if(!devices) return;
     document.getElementById('stat-total').innerText = devices.length;
     document.getElementById('stat-belum').innerText = devices.filter(d => d.status === 'Belum di setup').length;
     document.getElementById('stat-progress').innerText = devices.filter(d => d.status === 'On progress').length;
@@ -306,12 +262,8 @@ async function updateDashboardStats(devices = null) {
     document.getElementById('stat-deploy').innerText = devices.filter(d => d.status === 'Done deploy user').length;
 }
 
-async function updateOldDashboardStats(oldDevices = null) {
-    if(!oldDevices){
-        const { data } = await supabaseClient.from('old_devices').select('*');
-        oldDevices = data || [];
-    }
-
+function updateOldDashboardStats(oldDevices) {
+    if (!oldDevices) return;
     document.getElementById('old-stat-total').innerText = oldDevices.length;
     document.getElementById('old-stat-done').innerText = oldDevices.filter(d => d.status_bast === 'done BAST').length;
     document.getElementById('old-stat-pending').innerText = oldDevices.filter(d => d.status_bast === 'pending BAST').length;
@@ -335,12 +287,7 @@ function formatTanggalIndo(dateString) {
     if (parts.length !== 3) return dateString;
     const [year, month, day] = parts;
     const d = new Date(year, month - 1, day);
-    return d.toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-    });
+    return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 // ==========================================
@@ -358,20 +305,18 @@ async function renderDevices() {
     const { data: devices, error } = await supabaseClient.from('devices').select('*');
     if (error) { console.error(error); return; }
 
+    // Update Dashboard Langsung
+    updateDashboardStats(devices);
+
     const tbody = document.getElementById('table-device');
     tbody.innerHTML = '';
-
     let list = devices || [];
 
     const selectedStatus = document.getElementById('filter-status-select').value;
-    if (selectedStatus !== 'All') {
-        list = list.filter(d => d.status === selectedStatus);
-    }
+    if (selectedStatus !== 'All') list = list.filter(d => d.status === selectedStatus);
 
     const selectedLocation = document.getElementById('filter-location-select').value;
-    if (selectedLocation !== 'All') {
-        list = list.filter(d => d.lokasi === selectedLocation);
-    }
+    if (selectedLocation !== 'All') list = list.filter(d => d.lokasi === selectedLocation);
 
     const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
     if (searchVal) {
@@ -383,15 +328,7 @@ async function renderDevices() {
     }
 
     const sortVal = document.getElementById('sort-date-select').value;
-    list.sort((a, b) => {
-        const dateA = a.tanggal || '';
-        const dateB = b.tanggal || '';
-        if (sortVal === 'oldest') {
-            return dateA.localeCompare(dateB);
-        } else {
-            return dateB.localeCompare(dateA);
-        }
-    });
+    list.sort((a, b) => sortVal === 'oldest' ? (a.tanggal || '').localeCompare(b.tanggal || '') : (b.tanggal || '').localeCompare(a.tanggal || ''));
 
     list.forEach(d => {
         tbody.innerHTML += `
@@ -412,12 +349,9 @@ async function renderDevices() {
             </tr>
         `;
     });
-    updateDashboardStats(devices);
 }
 
-async function searchDevice() {
-    renderDevices();
-}
+async function searchDevice() { renderDevices(); }
 
 async function saveDevice() {
     const id = document.getElementById('dev-id').value;
@@ -430,23 +364,14 @@ async function saveDevice() {
     const tanggal = document.getElementById('dev-tgl').value;
     const status = document.getElementById('dev-status').value;
 
-    if (!nama || !sn || !email) {
-        alert("Nama User, Serial Number, dan Email wajib diisi!");
-        return;
-    }
+    if (!nama || !sn || !email) return alert("Nama User, Serial Number, dan Email wajib diisi!");
 
     const { data: allDevices } = await supabaseClient.from('devices').select('*');
-    const duplicateSN = allDevices.find(d => d.sn.toLowerCase() === sn.toLowerCase() && d.id != id);
-    const duplicateEmail = allDevices.find(d => d.email.toLowerCase() === email.toLowerCase() && d.id != id);
+    const duplicateSN = allDevices.find(d => d.sn.toLowerCase() === sn.toLowerCase() && String(d.id) !== String(id));
+    const duplicateEmail = allDevices.find(d => d.email.toLowerCase() === email.toLowerCase() && String(d.id) !== String(id));
 
-    if (duplicateSN) {
-        alert(`Duplicate Values Warning: Serial Number "${sn}" sudah terdaftar!`);
-        return;
-    }
-    if (duplicateEmail) {
-        alert(`Duplicate Values Warning: Email "${email}" sudah terdaftar!`);
-        return;
-    }
+    if (duplicateSN) return alert(`Duplicate Values Warning: Serial Number "${sn}" sudah terdaftar!`);
+    if (duplicateEmail) return alert(`Duplicate Values Warning: Email "${email}" sudah terdaftar!`);
 
     const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -459,22 +384,16 @@ async function saveDevice() {
             historyLog = historyLog ? newUpdate + '<br>' + historyLog : newUpdate;
         }
 
-        await supabaseClient.from('devices').update({
-            nama, sn, email, team, lokasi, alamat, tanggal, status, history: historyLog
-        }).eq('id', id);
-
+        await supabaseClient.from('devices').update({ nama, sn, email, team, lokasi, alamat, tanggal, status, history: historyLog }).eq('id', id);
         await logActivity(currentUser.username, `Mengupdate data device SN: ${sn}`);
     } else {
         const newHistory = `• Data dibuat oleh <em>${currentUser.username}</em> pada ${nowStr}`;
-        await supabaseClient.from('devices').insert([{
-            nama, sn, email, team, lokasi, alamat, tanggal, status, history: newHistory
-        }]);
-
+        await supabaseClient.from('devices').insert([{ nama, sn, email, team, lokasi, alamat, tanggal, status, history: newHistory }]);
         await logActivity(currentUser.username, `Menambah device baru SN: ${sn}`);
     }
     
     closeModal('modal-device');
-    // renderDevices() akan dipanggil otomatis oleh fungsi realtime subscriptions
+    renderDevices(); 
 }
 
 async function editDevice(id) {
@@ -498,12 +417,14 @@ async function clearHistory(id) {
     if(confirm("Reset Riwayat Status Update untuk device ini?")) {
         const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
         await supabaseClient.from('devices').update({ history: `• Riwayat direset oleh ${currentUser.username} pada ${nowStr}` }).eq('id', id);
+        renderDevices();
     }
 }
 
 async function deleteDevice(id) {
     if(confirm("Hapus data device ini dari cloud?")) {
         await supabaseClient.from('devices').delete().eq('id', id);
+        renderDevices();
     }
 }
 
@@ -515,7 +436,6 @@ function getBastBadge(bast) {
     if(bast === 'pending BAST') return `<span class="badge badge-bast-pending">Pending BAST</span>`;
     return `<span class="badge badge-bast-belum">Belum BAST</span>`;
 }
-
 function getReturnBadge(ret) {
     if(ret === 'sudah') return `<span class="badge badge-return-sudah">Sudah</span>`;
     return `<span class="badge badge-return-belum">Belum</span>`;
@@ -525,25 +445,20 @@ async function renderOldDevices() {
     const { data: oldList, error } = await supabaseClient.from('old_devices').select('*');
     if (error) { console.error(error); return; }
 
+    updateOldDashboardStats(oldList);
+
     const tbody = document.getElementById('table-old-device');
     tbody.innerHTML = '';
-
     let list = oldList || [];
 
     const locFilter = document.getElementById('filter-old-location-select').value;
-    if (locFilter !== 'All') {
-        list = list.filter(d => d.lokasi === locFilter);
-    }
+    if (locFilter !== 'All') list = list.filter(d => d.lokasi === locFilter);
 
     const bastFilter = document.getElementById('filter-bast-select').value;
-    if (bastFilter !== 'All') {
-        list = list.filter(d => d.status_bast === bastFilter);
-    }
+    if (bastFilter !== 'All') list = list.filter(d => d.status_bast === bastFilter);
 
     const returnFilter = document.getElementById('filter-return-select').value;
-    if (returnFilter !== 'All') {
-        list = list.filter(d => d.status_pengembalian === returnFilter);
-    }
+    if (returnFilter !== 'All') list = list.filter(d => d.status_pengembalian === returnFilter);
 
     const searchVal = document.getElementById('search-old-input').value.toLowerCase().trim();
     if (searchVal) {
@@ -573,7 +488,6 @@ async function renderOldDevices() {
             </tr>
         `;
     });
-    updateOldDashboardStats(oldList);
 }
 
 async function saveOldDevice() {
@@ -587,11 +501,7 @@ async function saveOldDevice() {
     const status_pengembalian = document.getElementById('old-pengembalian').value;
     const status_bast = document.getElementById('old-bast').value;
 
-    if (!sn || !nama) {
-        alert("SN dan Nama User wajib diisi!");
-        return;
-    }
-
+    if (!sn || !nama) return alert("SN dan Nama User wajib diisi!");
     const data = { sn, nama, email, lokasi, divisi, tanggal, status_pengembalian, status_bast };
 
     if (id) {
@@ -603,6 +513,7 @@ async function saveOldDevice() {
     }
 
     closeModal('modal-old-device');
+    renderOldDevices();
 }
 
 async function editOldDevice(id) {
@@ -625,6 +536,7 @@ async function editOldDevice(id) {
 async function deleteOldDevice(id) {
     if(confirm("Hapus data device lama ini?")) {
         await supabaseClient.from('old_devices').delete().eq('id', id);
+        renderOldDevices();
     }
 }
 
@@ -671,11 +583,7 @@ async function saveIncident() {
     const problem_deployment = document.getElementById('inc-problem').value.trim();
     const catatan = document.getElementById('inc-catatan').value.trim();
 
-    if (!tanggal) {
-        alert("Tanggal wajib diisi!");
-        return;
-    }
-
+    if (!tanggal) return alert("Tanggal wajib diisi!");
     const data = { tanggal, incident, problem_deployment, catatan };
 
     if (id) {
@@ -687,6 +595,7 @@ async function saveIncident() {
     }
 
     closeModal('modal-incident');
+    renderIncidents();
 }
 
 async function editIncident(id) {
@@ -705,6 +614,7 @@ async function editIncident(id) {
 async function deleteIncident(id) {
     if(confirm("Hapus ringkasan incident ini?")) {
         await supabaseClient.from('incident_summaries').delete().eq('id', id);
+        renderIncidents();
     }
 }
 
@@ -737,11 +647,7 @@ async function saveLocation() {
     const nama = document.getElementById('loc-nama').value.trim();
     const keterangan = document.getElementById('loc-ket').value.trim();
 
-    if (!nama) {
-        alert("Nama Lokasi / Kota wajib diisi!");
-        return;
-    }
-
+    if (!nama) return alert("Nama Lokasi / Kota wajib diisi!");
     const data = { nama, keterangan };
 
     if (id) {
@@ -753,6 +659,8 @@ async function saveLocation() {
     }
 
     closeModal('modal-location');
+    await loadLocationOptions();
+    renderLocations();
 }
 
 async function editLocation(id) {
@@ -770,6 +678,8 @@ async function deleteLocation(id, nama) {
     if(confirm(`Hapus lokasi "${nama}" dari master data?`)) {
         await supabaseClient.from('locations').delete().eq('id', id);
         await logActivity(currentUser.username, `Menghapus lokasi: ${nama}`);
+        await loadLocationOptions();
+        renderLocations();
     }
 }
 
@@ -777,13 +687,9 @@ async function deleteLocation(id, nama) {
 // 7. ADMIN: RESET SEMUA DATA DATABASE
 // ==========================================
 async function confirmResetDatabase() {
-    if (!currentUser || currentUser.role !== 'Admin') {
-        alert("Akses ditolak! Fitur Reset Semua Data hanya dapat diakses oleh user dengan role Admin.");
-        return;
-    }
+    if (!currentUser || currentUser.role !== 'Admin') return alert("Akses ditolak! Fitur Reset Semua Data hanya dapat diakses oleh user dengan role Admin.");
 
     const confirm1 = prompt("PERINGATAN KERAS!\nApakah kamu yakin hapus semua data?\nKetik 'Ya' untuk melanjutkan atau 'Tidak' untuk membatalkan:");
-    
     if (confirm1 && confirm1.trim().toLowerCase() === 'ya') {
         const confirm2 = confirm("KONFIRMASI AKHIR: Seluruh data di database (Devices, Device Lama, Incident, Lokasi) akan dihapus permanen. Lanjutkan?");
         if (confirm2) {
@@ -801,11 +707,7 @@ async function confirmResetDatabase() {
                 console.error(err);
                 alert("Terjadi kesalahan saat mereset database.");
             }
-        } else {
-            alert("Reset database dibatalkan.");
         }
-    } else {
-        alert("Reset database dibatalkan.");
     }
 }
 
@@ -900,6 +802,7 @@ async function resetUser2FA(id, uname) {
         if(!error) {
             alert("Status 2FA berhasil direset!");
             await logActivity(currentUser.username, `Merreset status 2FA user: ${uname}`);
+            renderUsers();
         }
     }
 }
@@ -911,7 +814,6 @@ async function saveUser() {
     const role = document.getElementById('usr-role').value;
 
     if(!user || !pass) return alert("Username & Password harus diisi!");
-
     const data = { username: user, password: pass, role: role };
 
     if (id) {
@@ -923,6 +825,7 @@ async function saveUser() {
     }
 
     closeModal('modal-user');
+    renderUsers();
 }
 
 async function editUser(id) {
@@ -941,6 +844,7 @@ async function deleteUser(id, uname) {
     if(confirm(`Hapus user "${uname}"?`)) {
         await supabaseClient.from('app_users').delete().eq('id', id);
         await logActivity(currentUser.username, `Menghapus user: ${uname}`);
+        renderUsers();
     }
 }
 
@@ -1034,6 +938,7 @@ async function importExcel(event) {
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
+            renderDevices();
             await logActivity(currentUser.username, `Mengimpor ${importedData.length} data deploy dari Excel`);
             alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
