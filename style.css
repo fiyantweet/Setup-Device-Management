@@ -69,7 +69,6 @@ label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
-/* Dashboard Stats Responsif & Auto Adjust */
 .dashboard-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 25px; }
 .stat-card { background-color: var(--bg-card); padding: 18px; border-radius: 8px; border: 1px solid var(--border); border-top: 4px solid #444; text-align: center; transition: 0.2s; }
 .stat-card:hover { border-color: var(--primary); transform: translateY(-2px); }
@@ -92,7 +91,6 @@ th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--bo
 th { color: var(--text-muted); font-size: 11px; text-transform: uppercase; background-color: #080808; letter-spacing: 0.5px;}
 tr:hover { background-color: var(--bg-hover); }
 
-/* Auto Adjust Badges & Labels */
 .badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; color: #000; display: inline-block; white-space: nowrap; }
 .badge-belum { background-color: var(--danger); color: #fff;}
 .badge-progress { background-color: var(--warning); }

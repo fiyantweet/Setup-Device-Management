@@ -6,19 +6,17 @@
     <title>AutoPilot Device Manager | Supabase Cloud</title>
     <link rel="stylesheet" href="style.css">
     
-    <!-- Library SheetJS untuk Export/Import Excel -->
+    <!-- Library SheetJS untuk Export/Import Excel[cite: 3] -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <!-- Library QRCode untuk Authenticator 2FA -->
+    <!-- Library QRCode untuk Authenticator 2FA[cite: 3] -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- Library Supabase JS Client -->
+    <!-- Library Supabase JS Client[cite: 3] -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <!-- ==================== HALAMAN AUTENTIKASI ==================== -->
     <div id="auth-section" class="flex-center">
-        
-        <!-- Form Login -->
         <div id="login-card" class="card relative">
             <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Hidden Demo Area"></div>
 
@@ -109,7 +107,7 @@
                 </div>
             </div>
 
-            <!-- DASHBOARD REPORT TAB 2 (DEVICE LAMA) -->
+            <!-- DASHBOARD REPORT TAB 2 -->
             <div id="stat-view-2" class="dashboard-stats hidden">
                 <div class="stat-card box-total" onclick="setOldBastFilter('All')" style="cursor:pointer;">
                     <h3>Total Device Lama</h3><h2 id="old-stat-total">0</h2>
@@ -132,7 +130,7 @@
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
-                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, Email..." style="margin: 0; width: 180px;">
+                        <input type="text" id="search-input" class="input-form" placeholder="Cari Nama, SN, Email..." style="margin: 0; width: 180px;" onkeyup="renderDevices()">
                         
                         <select id="filter-status-select" class="input-form" style="margin: 0; width: 140px;" onchange="renderDevices()">
                             <option value="All">Status: Semua</option>
@@ -233,7 +231,7 @@
                 </div>
             </div>
 
-            <!-- TAB 3: INCIDENT & PROBLEM DEPLOYMENT SUMMARY -->
+            <!-- TAB 3: INCIDENT SUMMARY -->
             <div id="tab-incident" class="tab-content">
                 <div class="toolbar">
                     <h3 class="text-primary">Summary Incident, Problem Deployment & Catatan</h3>
@@ -255,7 +253,7 @@
                 </div>
             </div>
 
-            <!-- TAB 4: KELOLA LOKASI / KOTA -->
+            <!-- TAB 4: KELOLA LOKASI -->
             <div id="tab-location" class="tab-content">
                 <div class="toolbar">
                     <h3 class="text-primary">Manajemen Master Data Lokasi / Kota</h3>
@@ -275,7 +273,7 @@
                 </div>
             </div>
 
-            <!-- TAB 5: USER MANAGEMENT & RESET DATABASE -->
+            <!-- TAB 5: USER MANAGEMENT -->
             <div id="tab-admin" class="tab-content">
                 <div class="toolbar">
                     <h3 class="text-primary">Manajemen Hak Akses Login Cloud & Database Admin</h3>
@@ -475,7 +473,6 @@
                 <button class="btn btn-secondary" id="btn-act-login" onclick="switchActivityTab('login')">Riwayat Login & User</button>
             </div>
 
-            <!-- Tab 1: Riwayat Status Device -->
             <div id="act-tab-device" class="act-tab-content">
                 <div class="table-wrapper" style="max-height: 380px; overflow-y: auto;">
                     <table>
@@ -490,7 +487,6 @@
                 </div>
             </div>
 
-            <!-- Tab 2: Riwayat Login & Aktivitas User -->
             <div id="act-tab-login" class="act-tab-content hidden">
                 <div class="table-wrapper" style="max-height: 380px; overflow-y: auto;">
                     <table>

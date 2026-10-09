@@ -1,5 +1,5 @@
 // ==========================================
-// KONEKSI SUPABASE CLOUD
+// KONEKSI SUPABASE CLOUD & REALTIME
 // ==========================================
 const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
@@ -13,7 +13,6 @@ try {
 
 let currentUser = null;
 
-// Cek Sesi Persisten saat Browser Dimuat
 window.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('autopilot_current_user');
     if (savedUser) {
@@ -31,16 +30,12 @@ function setupEnterListeners() {
     const mCode = document.getElementById('mfa-code');
     const rUser = document.getElementById('reset-user');
     const rPass = document.getElementById('reset-pass');
-    const sInput = document.getElementById('search-input');
-    const sOldInput = document.getElementById('search-old-input');
 
     if(lUser) lUser.addEventListener('keypress', e => { if(e.key === 'Enter') lPass.focus(); });
     if(lPass) lPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleLogin(); });
     if(mCode) mCode.addEventListener('keypress', e => { if(e.key === 'Enter') handle2FA(); });
     if(rUser) rUser.addEventListener('keypress', e => { if(e.key === 'Enter') rPass.focus(); });
     if(rPass) rPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
-    if(sInput) sInput.addEventListener('keypress', e => { if(e.key === 'Enter') searchDevice(); });
-    if(sOldInput) sOldInput.addEventListener('keypress', e => { if(e.key === 'Enter') renderOldDevices(); });
 }
 
 async function logActivity(username, actionText) {
@@ -182,7 +177,7 @@ function logout() {
 }
 
 // ==========================================
-// 2. INISIALISASI & DASHBOARD TABS[cite: 4]
+// 2. INISIALISASI & REALTIME SUBSCRIPTION[cite: 4]
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
@@ -192,6 +187,7 @@ async function initApp() {
         document.getElementById('tab-btn-location').style.display = 'inline-block';
         document.getElementById('tab-btn-admin').style.display = 'inline-block';
         renderUsers();
+        renderLocations();
     } else {
         document.getElementById('tab-btn-location').style.display = 'none';
         document.getElementById('tab-btn-admin').style.display = 'none';
@@ -201,7 +197,31 @@ async function initApp() {
     await renderDevices();
     await renderOldDevices();
     await renderIncidents();
-    if(currentUser.role === 'Admin') renderLocations();
+
+    // Aktifkan Realtime Listener Otomatis
+    setupRealtimeListeners();
+}
+
+function setupRealtimeListeners() {
+    if (!supabaseClient) return;
+
+    supabaseClient.channel('db-live-changes')
+        .on('postgres_changes', { event: '*', schema: 'public' }, payload => {
+            const table = payload.table;
+            if (table === 'devices') {
+                renderDevices();
+            } else if (table === 'old_devices') {
+                renderOldDevices();
+            } else if (table === 'incident_summaries') {
+                renderIncidents();
+            } else if (table === 'locations') {
+                loadLocationOptions();
+                if (currentUser && currentUser.role === 'Admin') renderLocations();
+            } else if (table === 'app_users' && currentUser && currentUser.role === 'Admin') {
+                renderUsers();
+            }
+        })
+        .subscribe();
 }
 
 function switchTab(tabName) {
@@ -432,7 +452,6 @@ async function saveDevice() {
     }
     
     closeModal('modal-device');
-    renderDevices();
 }
 
 async function editDevice(id) {
@@ -456,14 +475,12 @@ async function clearHistory(id) {
     if(confirm("Reset Riwayat Status Update untuk device ini?")) {
         const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
         await supabaseClient.from('devices').update({ history: `• Riwayat direset oleh ${currentUser.username} pada ${nowStr}` }).eq('id', id);
-        renderDevices();
     }
 }
 
 async function deleteDevice(id) {
     if(confirm("Hapus data device ini dari cloud?")) {
         await supabaseClient.from('devices').delete().eq('id', id);
-        renderDevices();
     }
 }
 
@@ -563,7 +580,6 @@ async function saveOldDevice() {
     }
 
     closeModal('modal-old-device');
-    renderOldDevices();
 }
 
 async function editOldDevice(id) {
@@ -586,7 +602,6 @@ async function editOldDevice(id) {
 async function deleteOldDevice(id) {
     if(confirm("Hapus data device lama ini?")) {
         await supabaseClient.from('old_devices').delete().eq('id', id);
-        renderOldDevices();
     }
 }
 
@@ -649,7 +664,6 @@ async function saveIncident() {
     }
 
     closeModal('modal-incident');
-    renderIncidents();
 }
 
 async function editIncident(id) {
@@ -668,12 +682,11 @@ async function editIncident(id) {
 async function deleteIncident(id) {
     if(confirm("Hapus ringkasan incident ini?")) {
         await supabaseClient.from('incident_summaries').delete().eq('id', id);
-        renderIncidents();
     }
 }
 
 // ==========================================
-// 6. KELOLA MASTER LOKASI / KOTA (ADMIN)
+// 6. MASTER LOKASI / KOTA (ADMIN)
 // ==========================================
 async function renderLocations() {
     const { data: locations, error } = await supabaseClient.from('locations').select('*').order('nama', { ascending: true });
@@ -717,8 +730,6 @@ async function saveLocation() {
     }
 
     closeModal('modal-location');
-    await loadLocationOptions();
-    renderLocations();
 }
 
 async function editLocation(id) {
@@ -736,8 +747,6 @@ async function deleteLocation(id, nama) {
     if(confirm(`Hapus lokasi "${nama}" dari master data?`)) {
         await supabaseClient.from('locations').delete().eq('id', id);
         await logActivity(currentUser.username, `Menghapus lokasi: ${nama}`);
-        await loadLocationOptions();
-        renderLocations();
     }
 }
 
@@ -764,7 +773,6 @@ async function confirmResetDatabase() {
 
                 await logActivity(currentUser.username, "MELAKUKAN RESET SEMUA DATA DATABASE");
                 alert("Semua data di database berhasil direset/dikosongkan!");
-                initApp();
             } catch (err) {
                 console.error(err);
                 alert("Terjadi kesalahan saat mereset database.");
@@ -868,7 +876,6 @@ async function resetUser2FA(id, uname) {
         if(!error) {
             alert("Status 2FA berhasil direset!");
             await logActivity(currentUser.username, `Merreset status 2FA user: ${uname}`);
-            renderUsers();
         }
     }
 }
@@ -892,7 +899,6 @@ async function saveUser() {
     }
 
     closeModal('modal-user');
-    renderUsers();
 }
 
 async function editUser(id) {
@@ -911,7 +917,6 @@ async function deleteUser(id, uname) {
     if(confirm(`Hapus user "${uname}"?`)) {
         await supabaseClient.from('app_users').delete().eq('id', id);
         await logActivity(currentUser.username, `Menghapus user: ${uname}`);
-        renderUsers();
     }
 }
 
@@ -1005,7 +1010,6 @@ async function importExcel(event) {
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
-            renderDevices();
             await logActivity(currentUser.username, `Mengimpor ${importedData.length} data deploy dari Excel`);
             alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
