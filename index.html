@@ -6,11 +6,11 @@
     <title>AutoPilot Device Manager | Supabase Cloud</title>
     <link rel="stylesheet" href="style.css">
     
-    <!-- Library SheetJS untuk Export/Import Excel -->
+    <!-- Library SheetJS untuk Export/Import Excel[cite: 3] -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <!-- Library QRCode untuk Authenticator 2FA -->
+    <!-- Library QRCode untuk Authenticator 2FA[cite: 3] -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- Library Supabase JS Client -->
+    <!-- Library Supabase JS Client[cite: 3] -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -81,14 +81,16 @@
             <div class="logo">AutoPilot <span>Cloud</span> <small id="login-role-badge" class="badge badge-setup"></small></div>
             <div class="nav-tabs">
                 <button class="tab-btn active" onclick="switchTab('device')">Deploy Device</button>
+                <button class="tab-btn" onclick="switchTab('old-device')">Report Device Lama</button>
+                <button class="tab-btn" onclick="switchTab('incident')">Incident & Problem Summary</button>
                 <button class="tab-btn" id="tab-btn-admin" onclick="switchTab('admin')">Pengaturan User</button>
                 <button class="btn btn-danger" onclick="logout()">Logout</button>
             </div>
         </nav>
 
         <div class="container">
-            <!-- DASHBOARD PROGRESS -->
-            <div class="dashboard-stats">
+            <!-- DASHBOARD PROGRESS TAB 1 -->
+            <div id="stat-view-1" class="dashboard-stats">
                 <div class="stat-card box-total" onclick="setStatFilter('All')" style="cursor:pointer;" title="Tampilkan Semua">
                     <h3>Total Device</h3><h2 id="stat-total">0</h2>
                 </div>
@@ -106,7 +108,26 @@
                 </div>
             </div>
 
-            <!-- TAB 1: DEVICE -->
+            <!-- DASHBOARD REPORT TAB 2 (DEVICE LAMA) -->
+            <div id="stat-view-2" class="dashboard-stats hidden">
+                <div class="stat-card box-total" onclick="setOldBastFilter('All')" style="cursor:pointer;">
+                    <h3>Total Device Lama</h3><h2 id="old-stat-total">0</h2>
+                </div>
+                <div class="stat-card box-setup" onclick="setOldBastFilter('done BAST')" style="cursor:pointer;">
+                    <h3>Done BAST</h3><h2 id="old-stat-done">0</h2>
+                </div>
+                <div class="stat-card box-progress" onclick="setOldBastFilter('pending BAST')" style="cursor:pointer;">
+                    <h3>Pending BAST</h3><h2 id="old-stat-pending">0</h2>
+                </div>
+                <div class="stat-card box-belum" onclick="setOldBastFilter('belum BAST')" style="cursor:pointer;">
+                    <h3>Belum BAST</h3><h2 id="old-stat-belum">0</h2>
+                </div>
+                <div class="stat-card box-deploy" style="cursor:default;">
+                    <h3>Sudah Dikembalikan</h3><h2 id="old-stat-kembali">0</h2>
+                </div>
+            </div>
+
+            <!-- TAB 1: DEVICE (DEPLOY) -->
             <div id="tab-device" class="tab-content active">
                 <div class="toolbar">
                     <div class="search-box">
@@ -155,11 +176,83 @@
                 </div>
             </div>
 
-            <!-- TAB 2: USER MANAGEMENT -->
+            <!-- TAB 2: REPORT STATUS DEVICE LAMA -->
+            <div id="tab-old-device" class="tab-content">
+                <div class="toolbar">
+                    <div class="search-box">
+                        <input type="text" id="search-old-input" class="input-form" placeholder="Cari SN, Nama, Divisi..." style="margin: 0; width: 200px;" onkeyup="renderOldDevices()">
+                        
+                        <select id="filter-bast-select" class="input-form" style="margin: 0; width: 160px;" onchange="renderOldDevices()">
+                            <option value="All">BAST: Semua</option>
+                            <option value="done BAST">Done BAST</option>
+                            <option value="pending BAST">Pending BAST</option>
+                            <option value="belum BAST">Belum BAST</option>
+                        </select>
+
+                        <select id="filter-return-select" class="input-form" style="margin: 0; width: 170px;" onchange="renderOldDevices()">
+                            <option value="All">Pengembalian: Semua</option>
+                            <option value="sudah">Sudah Dikembalikan</option>
+                            <option value="belum">Belum Dikembalikan</option>
+                        </select>
+
+                        <button class="btn btn-primary" onclick="renderOldDevices()">Cari</button>
+                    </div>
+                    <div class="action-box">
+                        <button class="btn btn-primary" onclick="openModal('modal-old-device')">+ Tambah Device Lama</button>
+                        <button class="btn btn-export" onclick="exportOldExcel()">Export Excel Lama</button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>SN</th>
+                                <th>Nama User</th>
+                                <th>Email</th>
+                                <th>Lokasi</th>
+                                <th>Divisi</th>
+                                <th>Tanggal</th>
+                                <th>Status Pengembalian Device</th>
+                                <th>Status BAST</th>
+                                <th style="width: 120px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-old-device"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 3: INCIDENT & PROBLEM DEPLOYMENT SUMMARY -->
+            <div id="tab-incident" class="tab-content">
+                <div class="toolbar">
+                    <h3 class="text-primary">Summary Incident, Problem Deployment & Catatan</h3>
+                    <button class="btn btn-primary" onclick="openModal('modal-incident')">+ Tambah Incident / Problem</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 130px;">Tanggal</th>
+                                <th>Incident</th>
+                                <th>Problem Deployment</th>
+                                <th>Catatan</th>
+                                <th style="width: 120px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-incident"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 4: USER MANAGEMENT & RESET DATABASE -->
             <div id="tab-admin" class="tab-content">
                 <div class="toolbar">
-                    <h3 class="text-primary">Manajemen Hak Akses Login Cloud</h3>
-                    <button class="btn btn-primary" onclick="openModal('modal-user')">+ Tambah User Akses</button>
+                    <h3 class="text-primary">Manajemen Hak Akses Login Cloud & Database Admin</h3>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-danger" onclick="confirmResetDatabase()">Reset Semua Data Database</button>
+                        <button class="btn btn-primary" onclick="openModal('modal-user')">+ Tambah User Akses</button>
+                    </div>
                 </div>
                 <div class="table-wrapper">
                     <table>
@@ -206,7 +299,7 @@
             <textarea id="dev-alamat" class="input-form" rows="3" placeholder="Input alamat pengiriman lengkap..."></textarea>
             
             <label>Tanggal Deploy</label>
-            <input type="date" id="dev-tgl" class="input-form">
+            <input type="date" id="dev-tgl" class="input-form" onclick="this.showPicker && this.showPicker()">
             
             <label>Status Deploy</label>
             <select id="dev-status" class="input-form">
@@ -219,6 +312,75 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('modal-device')">Batal</button>
                 <button class="btn btn-primary" onclick="saveDevice()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL OLD DEVICE -->
+    <div id="modal-old-device" class="modal hidden">
+        <div class="modal-box">
+            <h2 id="title-old-device" class="text-primary mb-20">Form Report Status Device Lama</h2>
+            <input type="hidden" id="old-id">
+            
+            <label>SN (Serial Number)</label>
+            <input type="text" id="old-sn" class="input-form" placeholder="SN Device Lama">
+            
+            <label>Nama User</label>
+            <input type="text" id="old-nama" class="input-form" placeholder="Nama User">
+            
+            <label>Email</label>
+            <input type="email" id="old-email" class="input-form" placeholder="email@domain.com">
+
+            <label>Lokasi</label>
+            <input type="text" id="old-lokasi" class="input-form" placeholder="Lokasi Kantor">
+
+            <label>Divisi</label>
+            <input type="text" id="old-divisi" class="input-form" placeholder="Nama Divisi">
+
+            <label>Tanggal</label>
+            <input type="date" id="old-tanggal" class="input-form" onclick="this.showPicker && this.showPicker()">
+
+            <label>Status Pengembalian Device</label>
+            <select id="old-pengembalian" class="input-form">
+                <option value="belum">Belum</option>
+                <option value="sudah">Sudah</option>
+            </select>
+
+            <label>Status BAST</label>
+            <select id="old-bast" class="input-form">
+                <option value="belum BAST">Belum BAST</option>
+                <option value="pending BAST">Pending BAST</option>
+                <option value="done BAST">Done BAST</option>
+            </select>
+            
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('modal-old-device')">Batal</button>
+                <button class="btn btn-primary" onclick="saveOldDevice()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL INCIDENT & PROBLEM SUMMARY -->
+    <div id="modal-incident" class="modal hidden">
+        <div class="modal-box">
+            <h2 id="title-incident" class="text-primary mb-20">Form Incident & Problem Deployment</h2>
+            <input type="hidden" id="inc-id">
+            
+            <label>Tanggal</label>
+            <input type="date" id="inc-tanggal" class="input-form" onclick="this.showPicker && this.showPicker()">
+
+            <label>Incident</label>
+            <textarea id="inc-incident" class="input-form" rows="2" placeholder="Deskripsi incident..."></textarea>
+            
+            <label>Problem Deployment</label>
+            <textarea id="inc-problem" class="input-form" rows="2" placeholder="Kendala/problem deployment..."></textarea>
+            
+            <label>Catatan</label>
+            <textarea id="inc-catatan" class="input-form" rows="2" placeholder="Catatan tambahan..."></textarea>
+            
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('modal-incident')">Batal</button>
+                <button class="btn btn-primary" onclick="saveIncident()">Simpan Summary</button>
             </div>
         </div>
     </div>
@@ -236,7 +398,7 @@
             
             <label>Level Akses / Role</label>
             <select id="usr-role" class="input-form">
-                <option value="Admin">Admin (Bisa Manage User)</option>
+                <option value="Admin">Admin (Bisa Manage User & Reset DB)</option>
                 <option value="Member">Member (Hanya Kelola Device)</option>
             </select>
             
