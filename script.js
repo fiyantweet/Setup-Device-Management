@@ -1,5 +1,5 @@
 // ==========================================
-// KONEKSI SUPABASE CLOUD[cite: 4]
+// KONEKSI SUPABASE CLOUD
 // ==========================================
 const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
@@ -189,23 +189,25 @@ async function initApp() {
     document.getElementById('login-role-badge').innerText = `[ ${currentUser.role} ]`;
 
     if(currentUser.role === 'Admin') {
+        document.getElementById('tab-btn-location').style.display = 'inline-block';
         document.getElementById('tab-btn-admin').style.display = 'inline-block';
         renderUsers();
     } else {
+        document.getElementById('tab-btn-location').style.display = 'none';
         document.getElementById('tab-btn-admin').style.display = 'none';
-        switchTab('device');
     }
 
+    await loadLocationOptions();
     await renderDevices();
     await renderOldDevices();
     await renderIncidents();
+    if(currentUser.role === 'Admin') renderLocations();
 }
 
 function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     
-    // Toggle Dashboard Stat Views
     document.getElementById('stat-view-1').classList.add('hidden');
     document.getElementById('stat-view-2').classList.add('hidden');
 
@@ -217,6 +219,40 @@ function switchTab(tabName) {
 
     document.getElementById(`tab-${tabName}`).classList.add('active');
     event.currentTarget.classList.add('active');
+}
+
+async function loadLocationOptions() {
+    const { data: locations } = await supabaseClient.from('locations').select('*').order('nama', { ascending: true });
+    
+    const filterLoc = document.getElementById('filter-location-select');
+    const filterOldLoc = document.getElementById('filter-old-location-select');
+    const devLoc = document.getElementById('dev-lokasi');
+    const oldLoc = document.getElementById('old-lokasi-input');
+
+    const currentFilterVal = filterLoc ? filterLoc.value : 'All';
+    const currentOldFilterVal = filterOldLoc ? filterOldLoc.value : 'All';
+    const currentDevVal = devLoc ? devLoc.value : '-';
+    const currentOldVal = oldLoc ? oldLoc.value : '-';
+
+    if (filterLoc) filterLoc.innerHTML = '<option value="All">Lokasi: Semua</option>';
+    if (filterOldLoc) filterOldLoc.innerHTML = '<option value="All">Lokasi: Semua</option>';
+    if (devLoc) devLoc.innerHTML = '<option value="-">Pilih Lokasi / Kota</option>';
+    if (oldLoc) oldLoc.innerHTML = '<option value="-">Pilih Lokasi / Kota</option>';
+
+    if (locations) {
+        locations.forEach(l => {
+            const optHtml = `<option value="${l.nama}">${l.nama}</option>`;
+            if (filterLoc) filterLoc.innerHTML += optHtml;
+            if (filterOldLoc) filterOldLoc.innerHTML += optHtml;
+            if (devLoc) devLoc.innerHTML += optHtml;
+            if (oldLoc) oldLoc.innerHTML += optHtml;
+        });
+    }
+
+    if (filterLoc) filterLoc.value = currentFilterVal;
+    if (filterOldLoc) filterOldLoc.value = currentOldFilterVal;
+    if (devLoc) devLoc.value = currentDevVal;
+    if (oldLoc) oldLoc.value = currentOldVal;
 }
 
 async function updateDashboardStats() {
@@ -290,6 +326,11 @@ async function renderDevices() {
         list = list.filter(d => d.status === selectedStatus);
     }
 
+    const selectedLocation = document.getElementById('filter-location-select').value;
+    if (selectedLocation !== 'All') {
+        list = list.filter(d => d.lokasi === selectedLocation);
+    }
+
     const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
     if (searchVal) {
         list = list.filter(d => 
@@ -317,13 +358,14 @@ async function renderDevices() {
                 <td><strong>${d.sn || ''}</strong></td>
                 <td>${d.email || ''}</td>
                 <td><span class="badge badge-setup" style="background:#222; color:var(--primary);">${d.team || '-'}</span></td>
+                <td><span class="badge badge-setup" style="background:#181818; color:var(--warning); border:1px solid var(--border);">${d.lokasi || '-'}</span></td>
                 <td>${d.alamat || ''}</td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
                 <td>${getStatusBadge(d.status)}</td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 6px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
-                    <button class="btn btn-clear" style="padding:5px 6px; font-size:11px;" onclick="clearHistory(${d.id})" title="Reset Riwayat">Clr</button>
-                    <button class="btn btn-danger" style="padding:5px 6px; font-size:11px;" onclick="deleteDevice(${d.id})">Del</button>
+                    <button class="btn btn-warning" style="padding:4px 6px; font-size:11px;" onclick="editDevice(${d.id})">Edit</button>
+                    <button class="btn btn-clear" style="padding:4px 6px; font-size:11px;" onclick="clearHistory(${d.id})" title="Reset Riwayat">Clr</button>
+                    <button class="btn btn-danger" style="padding:4px 6px; font-size:11px;" onclick="deleteDevice(${d.id})">Del</button>
                 </td>
             </tr>
         `;
@@ -341,6 +383,7 @@ async function saveDevice() {
     const sn = document.getElementById('dev-sn').value.trim();
     const email = document.getElementById('dev-email').value.trim();
     const team = document.getElementById('dev-team').value;
+    const lokasi = document.getElementById('dev-lokasi').value;
     const alamat = document.getElementById('dev-alamat').value.trim();
     const tanggal = document.getElementById('dev-tgl').value;
     const status = document.getElementById('dev-status').value;
@@ -375,14 +418,14 @@ async function saveDevice() {
         }
 
         await supabaseClient.from('devices').update({
-            nama, sn, email, team, alamat, tanggal, status, history: historyLog
+            nama, sn, email, team, lokasi, alamat, tanggal, status, history: historyLog
         }).eq('id', id);
 
         await logActivity(currentUser.username, `Mengupdate data device SN: ${sn}`);
     } else {
         const newHistory = `• Data dibuat oleh <em>${currentUser.username}</em> pada ${nowStr}`;
         await supabaseClient.from('devices').insert([{
-            nama, sn, email, team, alamat, tanggal, status, history: newHistory
+            nama, sn, email, team, lokasi, alamat, tanggal, status, history: newHistory
         }]);
 
         await logActivity(currentUser.username, `Menambah device baru SN: ${sn}`);
@@ -401,6 +444,7 @@ async function editDevice(id) {
         document.getElementById('dev-sn').value = data.sn;
         document.getElementById('dev-email').value = data.email;
         document.getElementById('dev-team').value = data.team || '-';
+        document.getElementById('dev-lokasi').value = data.lokasi || '-';
         document.getElementById('dev-alamat').value = data.alamat;
         document.getElementById('dev-tgl').value = data.tanggal;
         document.getElementById('dev-status').value = data.status;
@@ -424,7 +468,7 @@ async function deleteDevice(id) {
 }
 
 // ==========================================
-// 4. REPORT STATUS DEVICE LAMA (TAMPILAN KE-2)
+// 4. REPORT STATUS DEVICE LAMA
 // ==========================================
 function getBastBadge(bast) {
     if(bast === 'done BAST') return `<span class="badge badge-bast-done">Done BAST</span>`;
@@ -445,6 +489,11 @@ async function renderOldDevices() {
     tbody.innerHTML = '';
 
     let list = oldList || [];
+
+    const locFilter = document.getElementById('filter-old-location-select').value;
+    if (locFilter !== 'All') {
+        list = list.filter(d => d.lokasi === locFilter);
+    }
 
     const bastFilter = document.getElementById('filter-bast-select').value;
     if (bastFilter !== 'All') {
@@ -472,14 +521,14 @@ async function renderOldDevices() {
                 <td><strong>${d.sn || ''}</strong></td>
                 <td>${d.nama || ''}</td>
                 <td>${d.email || ''}</td>
-                <td>${d.lokasi || ''}</td>
+                <td><span class="badge badge-setup" style="background:#181818; color:var(--warning); border:1px solid var(--border);">${d.lokasi || '-'}</span></td>
                 <td>${d.divisi || ''}</td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
                 <td>${getReturnBadge(d.status_pengembalian)}</td>
                 <td>${getBastBadge(d.status_bast)}</td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 6px; font-size:11px;" onclick="editOldDevice(${d.id})">Edit</button>
-                    <button class="btn btn-danger" style="padding:5px 6px; font-size:11px;" onclick="deleteOldDevice(${d.id})">Del</button>
+                    <button class="btn btn-warning" style="padding:4px 6px; font-size:11px;" onclick="editOldDevice(${d.id})">Edit</button>
+                    <button class="btn btn-danger" style="padding:4px 6px; font-size:11px;" onclick="deleteOldDevice(${d.id})">Del</button>
                 </td>
             </tr>
         `;
@@ -492,7 +541,7 @@ async function saveOldDevice() {
     const sn = document.getElementById('old-sn').value.trim();
     const nama = document.getElementById('old-nama').value.trim();
     const email = document.getElementById('old-email').value.trim();
-    const lokasi = document.getElementById('old-lokasi').value.trim();
+    const lokasi = document.getElementById('old-lokasi-input').value;
     const divisi = document.getElementById('old-divisi').value.trim();
     const tanggal = document.getElementById('old-tanggal').value;
     const status_pengembalian = document.getElementById('old-pengembalian').value;
@@ -525,7 +574,7 @@ async function editOldDevice(id) {
         document.getElementById('old-sn').value = data.sn;
         document.getElementById('old-nama').value = data.nama;
         document.getElementById('old-email').value = data.email;
-        document.getElementById('old-lokasi').value = data.lokasi;
+        document.getElementById('old-lokasi-input').value = data.lokasi || '-';
         document.getElementById('old-divisi').value = data.divisi;
         document.getElementById('old-tanggal').value = data.tanggal;
         document.getElementById('old-pengembalian').value = data.status_pengembalian;
@@ -552,7 +601,7 @@ async function exportOldExcel() {
 }
 
 // ==========================================
-// 5. INCIDENT & PROBLEM SUMMARY (TAMPILAN KE-3)
+// 5. INCIDENT SUMMARY
 // ==========================================
 async function renderIncidents() {
     const { data: list, error } = await supabaseClient.from('incident_summaries').select('*').order('tanggal', { ascending: false });
@@ -569,8 +618,8 @@ async function renderIncidents() {
                 <td>${item.problem_deployment || '-'}</td>
                 <td>${item.catatan || '-'}</td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 6px; font-size:11px;" onclick="editIncident(${item.id})">Edit</button>
-                    <button class="btn btn-danger" style="padding:5px 6px; font-size:11px;" onclick="deleteIncident(${item.id})">Del</button>
+                    <button class="btn btn-warning" style="padding:4px 6px; font-size:11px;" onclick="editIncident(${item.id})">Edit</button>
+                    <button class="btn btn-danger" style="padding:4px 6px; font-size:11px;" onclick="deleteIncident(${item.id})">Del</button>
                 </td>
             </tr>
         `;
@@ -624,7 +673,76 @@ async function deleteIncident(id) {
 }
 
 // ==========================================
-// 6. ADMIN: RESET SEMUA DATA DATABASE
+// 6. KELOLA MASTER LOKASI / KOTA (ADMIN)
+// ==========================================
+async function renderLocations() {
+    const { data: locations, error } = await supabaseClient.from('locations').select('*').order('nama', { ascending: true });
+    if (error) { console.error(error); return; }
+
+    const tbody = document.getElementById('table-location');
+    tbody.innerHTML = '';
+
+    (locations || []).forEach(l => {
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${l.nama}</strong></td>
+                <td>${l.keterangan || '-'}</td>
+                <td>
+                    <button class="btn btn-warning" style="padding:4px 6px; font-size:11px;" onclick="editLocation(${l.id})">Edit</button>
+                    <button class="btn btn-danger" style="padding:4px 6px; font-size:11px;" onclick="deleteLocation(${l.id}, '${l.nama}')">Del</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+async function saveLocation() {
+    const id = document.getElementById('loc-id').value;
+    const nama = document.getElementById('loc-nama').value.trim();
+    const keterangan = document.getElementById('loc-ket').value.trim();
+
+    if (!nama) {
+        alert("Nama Lokasi / Kota wajib diisi!");
+        return;
+    }
+
+    const data = { nama, keterangan };
+
+    if (id) {
+        await supabaseClient.from('locations').update(data).eq('id', id);
+        await logActivity(currentUser.username, `Mengupdate lokasi: ${nama}`);
+    } else {
+        await supabaseClient.from('locations').insert([data]);
+        await logActivity(currentUser.username, `Menambah lokasi baru: ${nama}`);
+    }
+
+    closeModal('modal-location');
+    await loadLocationOptions();
+    renderLocations();
+}
+
+async function editLocation(id) {
+    const { data } = await supabaseClient.from('locations').select('*').eq('id', id).single();
+    if(data) {
+        document.getElementById('title-location').innerText = 'Edit Master Lokasi / Kota';
+        document.getElementById('loc-id').value = data.id;
+        document.getElementById('loc-nama').value = data.nama;
+        document.getElementById('loc-ket').value = data.keterangan || '';
+        document.getElementById('modal-location').classList.remove('hidden');
+    }
+}
+
+async function deleteLocation(id, nama) {
+    if(confirm(`Hapus lokasi "${nama}" dari master data?`)) {
+        await supabaseClient.from('locations').delete().eq('id', id);
+        await logActivity(currentUser.username, `Menghapus lokasi: ${nama}`);
+        await loadLocationOptions();
+        renderLocations();
+    }
+}
+
+// ==========================================
+// 7. ADMIN: RESET SEMUA DATA DATABASE
 // ==========================================
 async function confirmResetDatabase() {
     if (!currentUser || currentUser.role !== 'Admin') {
@@ -635,12 +753,13 @@ async function confirmResetDatabase() {
     const confirm1 = prompt("PERINGATAN KERAS!\nApakah kamu yakin hapus semua data?\nKetik 'Ya' untuk melanjutkan atau 'Tidak' untuk membatalkan:");
     
     if (confirm1 && confirm1.trim().toLowerCase() === 'ya') {
-        const confirm2 = confirm("KONFIRMASI AKHIR: Seluruh data di database (Devices, Device Lama, Incident Summary, Activity Logs) akan dihapus permanen. Lanjutkan?");
+        const confirm2 = confirm("KONFIRMASI AKHIR: Seluruh data di database (Devices, Device Lama, Incident, Lokasi) akan dihapus permanen. Lanjutkan?");
         if (confirm2) {
             try {
                 await supabaseClient.from('devices').delete().neq('id', 0);
                 await supabaseClient.from('old_devices').delete().neq('id', 0);
                 await supabaseClient.from('incident_summaries').delete().neq('id', 0);
+                await supabaseClient.from('locations').delete().neq('id', 0);
                 await supabaseClient.from('activity_logs').delete().neq('id', 0);
 
                 await logActivity(currentUser.username, "MELAKUKAN RESET SEMUA DATA DATABASE");
@@ -659,7 +778,7 @@ async function confirmResetDatabase() {
 }
 
 // ==========================================
-// 7. RIWAYAT AKTIVITAS & MODAL[cite: 4]
+// 8. RIWAYAT AKTIVITAS & MODAL[cite: 4]
 // ==========================================
 async function openActivityModal() {
     document.getElementById('modal-activity').classList.remove('hidden');
@@ -715,7 +834,7 @@ async function switchActivityTab(tab) {
 }
 
 // ==========================================
-// 8. CRUD USERS & RESET 2FA[cite: 2, 4]
+// 9. CRUD USERS & RESET 2FA[cite: 2, 4]
 // ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
@@ -734,9 +853,9 @@ async function renderUsers() {
                 <td>${status2FA}</td>
                 <td>••••••••</td>
                 <td>
-                    <button class="btn btn-warning" style="padding:5px 8px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
-                    <button class="btn btn-info" style="padding:5px 8px; font-size:11px;" onclick="resetUser2FA(${u.id}, '${u.username}')" title="Reset 2FA">Reset 2FA</button>
-                    ${users.length > 1 ? `<button class="btn btn-danger" style="padding:5px 8px; font-size:11px;" onclick="deleteUser(${u.id}, '${u.username}')">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
+                    <button class="btn btn-warning" style="padding:4px 8px; font-size:11px;" onclick="editUser(${u.id})">Edit</button>
+                    <button class="btn btn-info" style="padding:4px 8px; font-size:11px;" onclick="resetUser2FA(${u.id}, '${u.username}')" title="Reset 2FA">Reset 2FA</button>
+                    ${users.length > 1 ? `<button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteUser(${u.id}, '${u.username}')">Hapus</button>` : `<span class="badge" style="background:#333;color:#fff;">Default</span>`}
                 </td>
             </tr>
         `;
@@ -797,7 +916,7 @@ async function deleteUser(id, uname) {
 }
 
 // ==========================================
-// 9. MODALS & EXCEL EXPORT/IMPORT[cite: 3]
+// 10. MODALS & EXCEL EXPORT/IMPORT
 // ==========================================
 function openModal(modalId) {
     document.getElementById(modalId).classList.remove('hidden');
@@ -810,6 +929,7 @@ function openModal(modalId) {
         document.getElementById('dev-sn').value = '';
         document.getElementById('dev-email').value = '';
         document.getElementById('dev-team').value = '-';
+        document.getElementById('dev-lokasi').value = '-';
         document.getElementById('dev-alamat').value = '';
         document.getElementById('dev-tgl').value = todayStr;
         document.getElementById('dev-status').value = 'Belum di setup';
@@ -819,7 +939,7 @@ function openModal(modalId) {
         document.getElementById('old-sn').value = '';
         document.getElementById('old-nama').value = '';
         document.getElementById('old-email').value = '';
-        document.getElementById('old-lokasi').value = '';
+        document.getElementById('old-lokasi-input').value = '-';
         document.getElementById('old-divisi').value = '';
         document.getElementById('old-tanggal').value = todayStr;
         document.getElementById('old-pengembalian').value = 'belum';
@@ -831,6 +951,11 @@ function openModal(modalId) {
         document.getElementById('inc-incident').value = '';
         document.getElementById('inc-problem').value = '';
         document.getElementById('inc-catatan').value = '';
+    } else if(modalId === 'modal-location') {
+        document.getElementById('title-location').innerText = 'Form Master Lokasi / Kota';
+        document.getElementById('loc-id').value = '';
+        document.getElementById('loc-nama').value = '';
+        document.getElementById('loc-ket').value = '';
     } else if(modalId === 'modal-user') {
         document.getElementById('title-user').innerText = 'Tambah Akun Akses Baru';
         document.getElementById('usr-id').value = '';
@@ -872,6 +997,7 @@ async function importExcel(event) {
                 sn: item.sn || '',
                 email: item.email || '',
                 team: item.team || '-',
+                lokasi: item.lokasi || '-',
                 alamat: item.alamat || '',
                 tanggal: item.tanggal || new Date().toISOString().split('T')[0],
                 status: item.status || 'Belum di setup',
