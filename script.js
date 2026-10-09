@@ -321,7 +321,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES (DEPLOY) - WITH CONDITIONAL FORMATTING
+// 3. CRUD DEVICES (DEPLOY) + CONDITIONAL FORMATTING DUPLICATES
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -340,7 +340,7 @@ async function renderDevices() {
 
     let list = devices || [];
 
-    // Deteksi duplikasi SN dan Email untuk Conditional Formatting
+    // Hitung kemunculan duplikat SN & Email untuk Conditional Formatting
     const snCounts = {};
     const emailCounts = {};
     list.forEach(d => {
@@ -491,7 +491,7 @@ async function deleteDevice(id) {
 }
 
 // ==========================================
-// 4. REPORT STATUS DEVICE LAMA - WITH CONDITIONAL FORMATTING
+// 4. REPORT STATUS DEVICE LAMA + CONDITIONAL FORMATTING DUPLICATES
 // ==========================================
 function getBastBadge(bast) {
     if(bast === 'done BAST') return `<span class="badge badge-bast-done">Done BAST</span>`;
@@ -513,7 +513,7 @@ async function renderOldDevices() {
 
     let list = oldList || [];
 
-    // Deteksi duplikasi SN dan Email untuk Device Lama
+    // Hitung kemunculan duplikat SN & Email untuk Report Device Lama
     const oldSnCounts = {};
     const oldEmailCounts = {};
     list.forEach(d => {
