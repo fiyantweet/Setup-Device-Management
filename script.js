@@ -2,7 +2,7 @@
 // KONEKSI SUPABASE CLOUD & REALTIME
 // ==========================================
 const SUPABASE_URL = 'https://xnfdvmxbklqelwvxzygp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NDgwMzQsImV4cCI6MjEwNTIyNDAzNH0.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZmR2bXhia2xxZWx3dnh6eWdwIiwicm9sZSI6Inhwbm9uIiwiaWF0IjoxNzg5NjQ4MDM0LCJleHAiOjIxMDUyMjQwMzR9.c6rY_GA0vBjGMnUQc9xDPKSYC1sB1fNiYZU1kVbKt2Q';
 
 let supabaseClient = null;
 try {
@@ -22,6 +22,7 @@ window.addEventListener('DOMContentLoaded', () => {
         initApp();
     }
     setupEnterListeners();
+    setupDuplicateCheckListeners();
 });
 
 function setupEnterListeners() {
@@ -38,6 +39,35 @@ function setupEnterListeners() {
     if(rPass) rPass.addEventListener('keypress', e => { if(e.key === 'Enter') handleReset(); });
 }
 
+// Live Duplicate Check pada Form Input (Conditional Formatting Realtime)
+function setupDuplicateCheckListeners() {
+    const checkInputs = ['dev-sn', 'dev-email', 'old-sn', 'old-email'];
+    checkInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', async () => {
+                const val = el.value.trim().toLowerCase();
+                if (!val) {
+                    el.classList.remove('duplicate-highlight');
+                    return;
+                }
+                const tableName = id.startsWith('dev') ? 'devices' : 'old_devices';
+                const fieldName = id.includes('sn') ? 'sn' : 'email';
+                const currentId = id.startsWith('dev') ? document.getElementById('dev-id').value : document.getElementById('old-id').value;
+
+                const { data } = await supabaseClient.from(tableName).select('id, ' + fieldName);
+                const isDuplicate = (data || []).some(item => String(item[fieldName]).toLowerCase() === val && String(item.id) !== String(currentId));
+
+                if (isDuplicate) {
+                    el.classList.add('duplicate-highlight');
+                } else {
+                    el.classList.remove('duplicate-highlight');
+                }
+            });
+        }
+    });
+}
+
 async function logActivity(username, actionText) {
     if (!supabaseClient) return;
     const timeStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
@@ -49,7 +79,7 @@ async function logActivity(username, actionText) {
 }
 
 // ==========================================
-// 1. AUTENTIKASI & LOGIN SISTEM
+// 1. AUTENTIKASI & LOGIN SISTEM[cite: 4]
 // ==========================================
 function toggleAuth(view) {
     document.getElementById('login-card').classList.add('hidden');
@@ -177,7 +207,7 @@ function logout() {
 }
 
 // ==========================================
-// 2. INISIALISASI & REALTIME SUBSCRIPTION
+// 2. INISIALISASI & REALTIME SUBSCRIPTION[cite: 4]
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
@@ -321,7 +351,7 @@ function formatTanggalIndo(dateString) {
 }
 
 // ==========================================
-// 3. CRUD DEVICES (DEPLOY) + CONDITIONAL FORMATTING DUPLICATES
+// 3. CRUD DEVICES (DEPLOY) - DENGAN CONDITIONAL FORMATTING DUPLICATES[cite: 4]
 // ==========================================
 function getStatusBadge(status) {
     if(status === 'Belum di setup') return `<span class="badge badge-belum">${status}</span>`;
@@ -345,12 +375,12 @@ async function renderDevices() {
     const emailCounts = {};
     list.forEach(d => {
         if (d.sn) {
-            const s = d.sn.trim().toLowerCase();
-            snCounts[s] = (snCounts[s] || 0) + 1;
+            const val = d.sn.trim().toLowerCase();
+            snCounts[val] = (snCounts[val] || 0) + 1;
         }
         if (d.email) {
-            const e = d.email.trim().toLowerCase();
-            emailCounts[e] = (emailCounts[e] || 0) + 1;
+            const val = d.email.trim().toLowerCase();
+            emailCounts[val] = (emailCounts[val] || 0) + 1;
         }
     });
 
@@ -385,25 +415,17 @@ async function renderDevices() {
     });
 
     list.forEach(d => {
-        const isDupeSN = d.sn && snCounts[d.sn.trim().toLowerCase()] > 1;
-        const isDupeEmail = d.email && emailCounts[d.email.trim().toLowerCase()] > 1;
+        const isSnDup = d.sn && snCounts[d.sn.trim().toLowerCase()] > 1;
+        const isEmailDup = d.email && emailCounts[d.email.trim().toLowerCase()] > 1;
 
-        // Gaya Highlight Cells Rules -> Duplicate Values (Excel style)
-        const dupeStyle = 'background-color: rgba(255, 51, 102, 0.25); color: #ff3366; border: 1px dashed #ff3366; padding: 2px 6px; border-radius: 4px; font-weight: bold;';
-        
-        const snCellHTML = isDupeSN 
-            ? `<strong style="${dupeStyle}" title="Duplicate Values Warning: SN ini terdeteksi ganda!">⚠️ ${d.sn}</strong>` 
-            : `<strong>${d.sn || ''}</strong>`;
-            
-        const emailCellHTML = isDupeEmail 
-            ? `<span style="${dupeStyle}" title="Duplicate Values Warning: Email ini terdeteksi ganda!">⚠️ ${d.email}</span>` 
-            : `${d.email || ''}`;
+        const snHtml = isSnDup ? `<strong class="duplicate-highlight" title="Duplicate Value">${d.sn}</strong>` : `<strong>${d.sn || ''}</strong>`;
+        const emailHtml = isEmailDup ? `<span class="duplicate-highlight" title="Duplicate Value">${d.email}</span>` : `${d.email || ''}`;
 
         tbody.innerHTML += `
             <tr>
                 <td>${d.nama || ''}</td>
-                <td>${snCellHTML}</td>
-                <td>${emailCellHTML}</td>
+                <td>${snHtml}</td>
+                <td>${emailHtml}</td>
                 <td><span class="badge badge-setup" style="background:#222; color:var(--primary);">${d.team || '-'}</span></td>
                 <td><span class="badge badge-setup" style="background:#181818; color:var(--warning); border:1px solid var(--border);">${d.lokasi || '-'}</span></td>
                 <td>${d.alamat || ''}</td>
@@ -437,19 +459,6 @@ async function saveDevice() {
 
     if (!nama || !sn || !email) {
         alert("Nama User, Serial Number, dan Email wajib diisi!");
-        return;
-    }
-
-    const { data: allDevices } = await supabaseClient.from('devices').select('*');
-    const duplicateSN = allDevices.find(d => d.sn.toLowerCase() === sn.toLowerCase() && d.id != id);
-    const duplicateEmail = allDevices.find(d => d.email.toLowerCase() === email.toLowerCase() && d.id != id);
-
-    if (duplicateSN) {
-        alert(`Duplicate Values Warning: Serial Number "${sn}" sudah terdaftar!`);
-        return;
-    }
-    if (duplicateEmail) {
-        alert(`Duplicate Values Warning: Email "${email}" sudah terdaftar!`);
         return;
     }
 
@@ -512,7 +521,7 @@ async function deleteDevice(id) {
 }
 
 // ==========================================
-// 4. REPORT STATUS DEVICE LAMA + CONDITIONAL FORMATTING DUPLICATES
+// 4. REPORT STATUS DEVICE LAMA - DENGAN CONDITIONAL FORMATTING DUPLICATES
 // ==========================================
 function getBastBadge(bast) {
     if(bast === 'done BAST') return `<span class="badge badge-bast-done">Done BAST</span>`;
@@ -534,17 +543,17 @@ async function renderOldDevices() {
 
     let list = oldList || [];
 
-    // Hitung duplikasi SN & Email pada Report Device Lama
+    // Hitung frekuensi SN dan Email untuk Report Device Lama
     const oldSnCounts = {};
     const oldEmailCounts = {};
     list.forEach(d => {
         if (d.sn) {
-            const s = d.sn.trim().toLowerCase();
-            oldSnCounts[s] = (oldSnCounts[s] || 0) + 1;
+            const val = d.sn.trim().toLowerCase();
+            oldSnCounts[val] = (oldSnCounts[val] || 0) + 1;
         }
         if (d.email) {
-            const e = d.email.trim().toLowerCase();
-            oldEmailCounts[e] = (oldEmailCounts[e] || 0) + 1;
+            const val = d.email.trim().toLowerCase();
+            oldEmailCounts[val] = (oldEmailCounts[val] || 0) + 1;
         }
     });
 
@@ -574,23 +583,17 @@ async function renderOldDevices() {
     }
 
     list.forEach(d => {
-        const isDupeSN = d.sn && oldSnCounts[d.sn.trim().toLowerCase()] > 1;
-        const isDupeEmail = d.email && oldEmailCounts[d.email.trim().toLowerCase()] > 1;
-        const dupeStyle = 'background-color: rgba(255, 51, 102, 0.25); color: #ff3366; border: 1px dashed #ff3366; padding: 2px 6px; border-radius: 4px; font-weight: bold;';
+        const isSnDup = d.sn && oldSnCounts[d.sn.trim().toLowerCase()] > 1;
+        const isEmailDup = d.email && oldEmailCounts[d.email.trim().toLowerCase()] > 1;
 
-        const snCellHTML = isDupeSN 
-            ? `<strong style="${dupeStyle}" title="Duplicate Values Warning: SN Device Lama ini terdeteksi ganda!">⚠️ ${d.sn}</strong>` 
-            : `<strong>${d.sn || ''}</strong>`;
-            
-        const emailCellHTML = isDupeEmail 
-            ? `<span style="${dupeStyle}" title="Duplicate Values Warning: Email Device Lama ini terdeteksi ganda!">⚠️ ${d.email}</span>` 
-            : `${d.email || ''}`;
+        const snHtml = isSnDup ? `<strong class="duplicate-highlight" title="Duplicate Value">${d.sn}</strong>` : `<strong>${d.sn || ''}</strong>`;
+        const emailHtml = isEmailDup ? `<span class="duplicate-highlight" title="Duplicate Value">${d.email}</span>` : `${d.email || ''}`;
 
         tbody.innerHTML += `
             <tr>
-                <td>${snCellHTML}</td>
+                <td>${snHtml}</td>
                 <td>${d.nama || ''}</td>
-                <td>${emailCellHTML}</td>
+                <td>${emailHtml}</td>
                 <td><span class="badge badge-setup" style="background:#181818; color:var(--warning); border:1px solid var(--border);">${d.lokasi || '-'}</span></td>
                 <td>${d.divisi || ''}</td>
                 <td><strong>${formatTanggalIndo(d.tanggal)}</strong></td>
@@ -839,7 +842,7 @@ async function confirmResetDatabase() {
 }
 
 // ==========================================
-// 8. RIWAYAT AKTIVITAS & MODAL
+// 8. RIWAYAT AKTIVITAS & MODAL[cite: 4]
 // ==========================================
 async function openActivityModal() {
     document.getElementById('modal-activity').classList.remove('hidden');
@@ -895,7 +898,7 @@ async function switchActivityTab(tab) {
 }
 
 // ==========================================
-// 9. CRUD USERS & RESET 2FA
+// 9. CRUD USERS & RESET 2FA[cite: 2, 4]
 // ==========================================
 async function renderUsers() {
     const { data: users } = await supabaseClient.from('app_users').select('*');
@@ -979,6 +982,9 @@ async function deleteUser(id, uname) {
 function openModal(modalId) {
     document.getElementById(modalId).classList.remove('hidden');
     const todayStr = new Date().toISOString().split('T')[0];
+
+    // Hapus highlight duplikasi saat buka modal baru
+    document.querySelectorAll('.duplicate-highlight').forEach(el => el.classList.remove('duplicate-highlight'));
 
     if(modalId === 'modal-device') {
         document.getElementById('title-device').innerText = 'Form Deploy Device';
