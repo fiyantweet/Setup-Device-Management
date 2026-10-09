@@ -182,7 +182,7 @@ function logout() {
 }
 
 // ==========================================
-// 2. INISIALISASI & DASHBOARD TABS[cite: 4]
+// 2. INISIALISASI & DASHBOARD TABS & REALTIME
 // ==========================================
 async function initApp() {
     if(!currentUser) return;
@@ -202,6 +202,47 @@ async function initApp() {
     await renderOldDevices();
     await renderIncidents();
     if(currentUser.role === 'Admin') renderLocations();
+
+    // Setup Supabase Realtime Listener untuk Update Otomatis
+    setupRealtimeSubscriptions();
+}
+
+function setupRealtimeSubscriptions() {
+    if (!supabaseClient) return;
+
+    supabaseClient
+        .channel('public-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'devices' }, () => {
+            renderDevices();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'old_devices' }, () => {
+            renderOldDevices();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'incident_summaries' }, () => {
+            renderIncidents();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, async () => {
+            await loadLocationOptions();
+            renderLocations();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_users' }, () => {
+            if (currentUser && currentUser.role === 'Admin') {
+                renderUsers();
+            }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
+            // Update modal riwayat aktivitas jika sedang terbuka
+            const activityModal = document.getElementById('modal-activity');
+            if (activityModal && !activityModal.classList.contains('hidden')) {
+                const activeTabDev = document.getElementById('act-tab-device');
+                if (activeTabDev && !activeTabDev.classList.contains('hidden')) {
+                    switchActivityTab('device');
+                } else {
+                    switchActivityTab('login');
+                }
+            }
+        })
+        .subscribe();
 }
 
 function switchTab(tabName) {
@@ -432,7 +473,6 @@ async function saveDevice() {
     }
     
     closeModal('modal-device');
-    renderDevices();
 }
 
 async function editDevice(id) {
@@ -456,14 +496,12 @@ async function clearHistory(id) {
     if(confirm("Reset Riwayat Status Update untuk device ini?")) {
         const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
         await supabaseClient.from('devices').update({ history: `• Riwayat direset oleh ${currentUser.username} pada ${nowStr}` }).eq('id', id);
-        renderDevices();
     }
 }
 
 async function deleteDevice(id) {
     if(confirm("Hapus data device ini dari cloud?")) {
         await supabaseClient.from('devices').delete().eq('id', id);
-        renderDevices();
     }
 }
 
@@ -563,7 +601,6 @@ async function saveOldDevice() {
     }
 
     closeModal('modal-old-device');
-    renderOldDevices();
 }
 
 async function editOldDevice(id) {
@@ -586,7 +623,6 @@ async function editOldDevice(id) {
 async function deleteOldDevice(id) {
     if(confirm("Hapus data device lama ini?")) {
         await supabaseClient.from('old_devices').delete().eq('id', id);
-        renderOldDevices();
     }
 }
 
@@ -649,7 +685,6 @@ async function saveIncident() {
     }
 
     closeModal('modal-incident');
-    renderIncidents();
 }
 
 async function editIncident(id) {
@@ -668,7 +703,6 @@ async function editIncident(id) {
 async function deleteIncident(id) {
     if(confirm("Hapus ringkasan incident ini?")) {
         await supabaseClient.from('incident_summaries').delete().eq('id', id);
-        renderIncidents();
     }
 }
 
@@ -717,8 +751,6 @@ async function saveLocation() {
     }
 
     closeModal('modal-location');
-    await loadLocationOptions();
-    renderLocations();
 }
 
 async function editLocation(id) {
@@ -736,8 +768,6 @@ async function deleteLocation(id, nama) {
     if(confirm(`Hapus lokasi "${nama}" dari master data?`)) {
         await supabaseClient.from('locations').delete().eq('id', id);
         await logActivity(currentUser.username, `Menghapus lokasi: ${nama}`);
-        await loadLocationOptions();
-        renderLocations();
     }
 }
 
@@ -764,7 +794,6 @@ async function confirmResetDatabase() {
 
                 await logActivity(currentUser.username, "MELAKUKAN RESET SEMUA DATA DATABASE");
                 alert("Semua data di database berhasil direset/dikosongkan!");
-                initApp();
             } catch (err) {
                 console.error(err);
                 alert("Terjadi kesalahan saat mereset database.");
@@ -868,7 +897,6 @@ async function resetUser2FA(id, uname) {
         if(!error) {
             alert("Status 2FA berhasil direset!");
             await logActivity(currentUser.username, `Merreset status 2FA user: ${uname}`);
-            renderUsers();
         }
     }
 }
@@ -892,7 +920,6 @@ async function saveUser() {
     }
 
     closeModal('modal-user');
-    renderUsers();
 }
 
 async function editUser(id) {
@@ -911,7 +938,6 @@ async function deleteUser(id, uname) {
     if(confirm(`Hapus user "${uname}"?`)) {
         await supabaseClient.from('app_users').delete().eq('id', id);
         await logActivity(currentUser.username, `Menghapus user: ${uname}`);
-        renderUsers();
     }
 }
 
@@ -1005,7 +1031,6 @@ async function importExcel(event) {
             }));
             
             await supabaseClient.from('devices').insert(mappedData);
-            renderDevices();
             await logActivity(currentUser.username, `Mengimpor ${importedData.length} data deploy dari Excel`);
             alert("Berhasil mengimpor data ke Supabase Cloud!");
         }
