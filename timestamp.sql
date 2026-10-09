@@ -1,2 +1,0 @@
-alter table devices add column if not exists created_at timestamp with time zone default timezone('utc'::text, now());
-alter table devices add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now());
