@@ -6,14 +6,18 @@
     <title>AutoPilot Device Manager | Supabase Cloud</title>
     <link rel="stylesheet" href="style.css">
     
+    <!-- Library SheetJS untuk Export/Import Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- Library QRCode untuk Authenticator 2FA -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Library Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <!-- ==================== HALAMAN AUTENTIKASI ==================== -->
     <div id="auth-section" class="flex-center">
+        
         <!-- Form Login -->
         <div id="login-card" class="card relative">
             <div id="hidden-demo-trigger" onclick="fillDemoAccount()" title="Hidden Demo Area"></div>
@@ -143,8 +147,8 @@
                         </select>
 
                         <select id="sort-date-select" class="input-form" style="margin: 0; width: 120px;" onchange="renderDevices()">
+                            <option value="newest" selected>Tgl: Terbaru</option>
                             <option value="oldest">Tgl: Awal</option>
-                            <option value="newest">Tgl: Terbaru</option>
                         </select>
 
                         <button class="btn btn-primary" onclick="searchDevice()">Cari</button>
